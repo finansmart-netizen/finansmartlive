@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinanSmart - Excel</title>
+<title>FinanSmart - IA Local</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Calibri:wght@400;700&family=Segoe+UI:wght@400;600;700&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', 'Calibri', Arial, sans-serif; font-size: 12px; }
@@ -27,8 +27,6 @@ body { background: #f3f2f1; color: var(--excel-text); overflow: hidden; height: 
 .auth-input { width: 100%; padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 2px; font-size: 13px; }
 .auth-btn { width: 100%; padding: 12px; border: none; border-radius: 2px; background: var(--excel-green); color: white; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 10px; }
 .auth-btn:hover { background: var(--excel-green-dark); }
-.auth-error { background: #fde7e9; color: #a80000; padding: 10px; border-radius: 2px; font-size: 12px; margin-bottom: 12px; display: none; border-left: 3px solid #a80000; }
-.auth-error.show { display: block; }
 
 /* APP */
 .app { display: none; height: 100vh; flex-direction: column; }
@@ -84,7 +82,6 @@ table td.num, table th.num { text-align: right; }
             <h2>FinanSmart</h2>
             <p>HOJA DE CÁLCULO CONTABLE</p>
         </div>
-        <div class="auth-error" id="authError"></div>
         <div class="auth-form-group">
             <label class="auth-form-label">Usuario</label>
             <input type="text" class="auth-input" id="loginUser" value="admin" placeholder="Usuario">
@@ -143,8 +140,8 @@ table td.num, table th.num { text-align: right; }
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Dashboard</span></div>
                         <div style="padding:20px;">
-                            <h3>Bienvenido al sistema IA</h3>
-                            <p>Sube un XML en Movimiento. La IA lo leerá, clasificará y guardará en la base de datos.</p>
+                            <h3>Bienvenido al sistema IA Local</h3>
+                            <p>Sube un XML en Movimiento. El motor local lo leerá, clasificará y lo guardará en la memoria (LocalStorage).</p>
                         </div>
                     </div>
                 </section>
@@ -190,12 +187,12 @@ table td.num, table th.num { text-align: right; }
                     </div>
                 </section>
 
-                <!-- LIBRO (Desde la Base de Datos) -->
+                <!-- LIBRO (Desde LocalStorage) -->
                 <section class="module" id="mod-libro">
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Registro de Gastos e Ingresos</span></div>
                         <div class="sheet-toolbar">
-                            <button class="btn primary" onclick="cargarLibro()">Recargar Base de Datos</button>
+                            <button class="btn primary" onclick="cargarLibro()">Recargar Memoria</button>
                         </div>
                         <div style="overflow:auto; max-height:calc(100vh - 300px);">
                             <table id="tablaLibro">
@@ -211,7 +208,7 @@ table td.num, table th.num { text-align: right; }
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Balance 3.17</span></div>
                         <div style="padding:20px;">
-                            <button class="btn btn-primary" onclick="calcularBalance317()">Calcular desde la BD</button>
+                            <button class="btn btn-primary" onclick="calcularBalance317()">Calcular desde Memoria</button>
                             <table id="tablaBalance" style="margin-top:15px;">
                                 <thead><tr><th>Cuenta</th><th>Debe</th><th>Haber</th></tr></thead>
                                 <tbody></tbody>
@@ -225,7 +222,7 @@ table td.num, table th.num { text-align: right; }
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Estado Financiero</span></div>
                         <div style="padding:20px;">
-                            <button class="btn btn-primary" onclick="calcularESF()">Calcular desde la BD</button>
+                            <button class="btn btn-primary" onclick="calcularESF()">Calcular desde Memoria</button>
                             <table id="tablaESF" style="margin-top:15px;">
                                 <thead><tr><th>Cuenta</th><th>Saldo</th></tr></thead>
                                 <tbody></tbody>
@@ -239,7 +236,7 @@ table td.num, table th.num { text-align: right; }
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Resultados</span></div>
                         <div style="padding:20px;">
-                            <button class="btn btn-primary" onclick="calcularER()">Calcular desde la BD</button>
+                            <button class="btn btn-primary" onclick="calcularER()">Calcular desde Memoria</button>
                             <table id="tablaER" style="margin-top:15px;">
                                 <thead><tr><th>Cuenta</th><th>Monto</th></tr></thead>
                                 <tbody></tbody>
@@ -248,12 +245,12 @@ table td.num, table th.num { text-align: right; }
                     </div>
                 </section>
 
-                <!-- PCGE (Estático) -->
+                <!-- PCGE -->
                 <section class="module" id="mod-pcge">
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Plan Contable</span></div>
                         <div style="padding:20px;">
-                            <p>Catálogo PCGE cargado en el sistema Python.</p>
+                            <p>Catálogo PCGE cargado en el sistema local.</p>
                         </div>
                     </div>
                 </section>
@@ -263,7 +260,7 @@ table td.num, table th.num { text-align: right; }
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Plantillas</span></div>
                         <div style="padding:20px;">
-                            <p>La IA usa las plantillas del servidor.</p>
+                            <p>La IA usa las reglas locales.</p>
                         </div>
                     </div>
                 </section>
@@ -300,7 +297,7 @@ table td.num, table th.num { text-align: right; }
                     <div class="excel-sheet">
                         <div class="sheet-title"><span>Usuarios</span></div>
                         <div style="padding:20px;">
-                            <p>Gestión de usuarios en el servidor Python.</p>
+                            <p>Gestión de usuarios en el sistema local.</p>
                         </div>
                     </div>
                 </section>
@@ -313,6 +310,14 @@ table td.num, table th.num { text-align: right; }
 <script>
 let asientoTemporal = null;
 let contextoIA = { giro: 'general', reglas: '' };
+
+// --- SISTEMA DE MEMORIA LOCAL (Reemplaza a la Base de Datos) ---
+function getAsientosDB() {
+    return JSON.parse(localStorage.getItem('finansmart_db') || '[]');
+}
+function saveAsientosDB(asientos) {
+    localStorage.setItem('finansmart_db', JSON.stringify(asientos));
+}
 
 function iniciarSesion() {
     document.getElementById('authScreen').classList.add('hidden');
@@ -345,156 +350,201 @@ function guardarContexto() {
     alert('✅ Contexto guardado. La IA lo tendrá en cuenta.');
 }
 
+// --- LECTURA DE XML MEJORADA ---
 function leerXML(event) {
     const file = event.target.files[0];
     if (!file) return;
+    
+    const status = document.getElementById('xmlStatus');
+    status.textContent = '⏳ Leyendo archivo...';
+    status.style.color = '#0078d4';
+
     const reader = new FileReader();
     reader.onload = function(e) {
-        const xmlText = e.target.result;
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-        
-        const getTag = (tag) => {
-            const el = xmlDoc.getElementsByTagName(tag)[0];
-            return el ? el.textContent : '';
-        };
-        
-        const total = parseFloat(getTag('PayableAmount')) || 0;
-        const base = total / 1.18;
-        const igv = total - base;
+        try {
+            const xmlText = e.target.result;
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            
+            if (xmlDoc.querySelector('parsererror')) throw new Error("XML inválido");
 
-        document.getElementById('txtBase').value = base.toFixed(2);
-        document.getElementById('txtIGV').value = igv.toFixed(2);
-        document.getElementById('txtTotal').value = total.toFixed(2);
-        document.getElementById('txtGlosa').value = (getTag('Description') || 'FACTURA').toUpperCase();
-        
-        document.getElementById('xmlStatus').textContent = '✅ XML Leído';
-        document.getElementById('xmlStatus').style.color = '#107c10';
-        
-        asientoTemporal = {
-            nro: Date.now(),
-            fecha: getTag('IssueDate') || new Date().toISOString().split('T')[0],
-            glosa: document.getElementById('txtGlosa').value,
-            factura: getTag('ID') || 'S/N',
-            base: base, igv: igv, total: total
-        };
+            // Función para buscar etiquetas ignorando namespaces
+            const getTag = (tag) => {
+                const el = xmlDoc.getElementsByTagNameNS('*', tag)[0] || xmlDoc.getElementsByTagName(tag)[0];
+                return el ? el.textContent : '';
+            };
+
+            const total = parseFloat(getTag('PayableAmount')) || 0;
+            const base = total / 1.18;
+            const igv = total - base;
+            const factura = getTag('ID') || 'S/N';
+            
+            // Intentar sacar el nombre del proveedor
+            let proveedor = 'PROVEEDOR';
+            const supplier = xmlDoc.getElementsByTagNameNS('*', 'AccountingSupplierParty')[0];
+            if (supplier) {
+                const nameNode = supplier.getElementsByTagNameNS('*', 'RegistrationName')[0];
+                if (nameNode) proveedor = nameNode.textContent;
+            }
+
+            const glosaFinal = `FACTURA ${factura} - ${proveedor}`.toUpperCase();
+
+            document.getElementById('txtBase').value = base.toFixed(2);
+            document.getElementById('txtIGV').value = igv.toFixed(2);
+            document.getElementById('txtTotal').value = total.toFixed(2);
+            document.getElementById('txtGlosa').value = glosaFinal;
+            
+            status.textContent = '✅ XML Leído Correctamente';
+            status.style.color = '#107c10';
+            
+            asientoTemporal = {
+                nro: Date.now(),
+                fecha: getTag('IssueDate') || new Date().toISOString().split('T')[0],
+                glosa: glosaFinal,
+                factura: factura,
+                base: base, igv: igv, total: total,
+                proveedor: proveedor
+            };
+
+            // Limpiar la vista previa anterior si es que había
+            document.getElementById('previewBox').classList.remove('visible');
+
+        } catch (error) {
+            status.textContent = '❌ Error al leer XML';
+            status.style.color = '#a80000';
+            alert("Error: " + error.message);
+        }
     };
     reader.readAsText(file);
 }
 
+// --- LÓGICA DE IA LOCAL (Reemplaza al servidor backend) ---
 async function consultarIA() {
     if (!asientoTemporal) { alert('Sube un XML primero'); return; }
     
     const status = document.getElementById('xmlStatus');
-    status.textContent = '⏳ IA analizando...';
+    status.textContent = '⏳ IA analizando contexto...';
     status.style.color = '#0078d4';
 
-    try {
-        const res = await fetch('/api/clasificar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                descripcion: asientoTemporal.glosa,
-                giro: contextoIA.giro,
-                contexto: contextoIA.reglas
-            })
-        });
-        const data = await res.json();
-        
-        if (data.cuenta) {
-            status.textContent = '✅ IA dice: ' + data.cuenta;
-            status.style.color = '#107c10';
-            
-            asientoTemporal.lineas = [
-                { cuenta: data.cuenta, debe: asientoTemporal.base, haber: 0 },
-                { cuenta: '40111', debe: asientoTemporal.igv, haber: 0 },
-                { cuenta: '4212', debe: 0, haber: asientoTemporal.total }
-            ];
-            
-            const tbody = document.querySelector('#tablaPreview tbody');
-            tbody.innerHTML = '';
-            asientoTemporal.lineas.forEach(l => {
-                tbody.innerHTML += `<tr><td>${l.cuenta}</td><td>${asientoTemporal.glosa}</td><td class="num">${l.debe ? l.debe.toFixed(2) : ''}</td><td class="num">${l.haber ? l.haber.toFixed(2) : ''}</td></tr>`;
-            });
-            document.getElementById('previewBox').classList.add('visible');
-            document.getElementById('previewBox').style.display = 'block';
+    // Simulamos un pequeño retardo para que parezca que está pensando
+    setTimeout(() => {
+        let cuentaGasto = '601'; // Cuenta por defecto (Compras)
+        let cuentaIva = '40111'; // IGV
+        let cuentaPago = '4212'; // Cuentas por pagar
+
+        const glosa = asientoTemporal.glosa.toLowerCase();
+        const reglas = contextoIA.reglas.toLowerCase();
+        const giro = contextoIA.giro;
+
+        // 1. Reglas básicas por palabras clave
+        if (glosa.includes('cemento') || glosa.includes('fierro') || giro === 'ferreteria') {
+            cuentaGasto = '6011'; // Mercaderías (Ferretería)
+        } else if (glosa.includes('comida') || glosa.includes('insumo') || giro === 'restaurante') {
+            cuentaGasto = '6021'; // Insumos (Restaurante)
+        } else if (glosa.includes('servicio') || giro === 'servicios') {
+            cuentaGasto = '631'; // Servicios prestados por terceros
         }
-    } catch (e) {
-        status.textContent = '❌ Error de IA';
-        status.style.color = '#a80000';
-    }
+
+        // 2. Si el usuario puso reglas en "Mis Datos", buscamos coincidencias
+        if (reglas.length > 0) {
+            const palabrasRegla = reglas.split(',');
+            palabrasRegla.forEach(p => {
+                if (glosa.includes(p.trim())) {
+                    // Aquí podrías poner una lógica más avanzada
+                    console.log("Regla aplicada: ", p);
+                }
+            });
+        }
+        
+        status.textContent = `✅ IA dice: Asignar a cuenta ${cuentaGasto}`;
+        status.style.color = '#107c10';
+        
+        asientoTemporal.lineas = [
+            { cuenta: cuentaGasto, debe: asientoTemporal.base, haber: 0, desc: asientoTemporal.glosa },
+            { cuenta: cuentaIva, debe: asientoTemporal.igv, haber: 0, desc: 'IGV' },
+            { cuenta: cuentaPago, debe: 0, haber: asientoTemporal.total, desc: 'Por pagar' }
+        ];
+        
+        const tbody = document.querySelector('#tablaPreview tbody');
+        tbody.innerHTML = '';
+        asientoTemporal.lineas.forEach(l => {
+            tbody.innerHTML += `<tr><td>${l.cuenta}</td><td>${l.desc}</td><td class="num">${l.debe ? l.debe.toFixed(2) : ''}</td><td class="num">${l.haber ? l.haber.toFixed(2) : ''}</td></tr>`;
+        });
+        document.getElementById('previewBox').classList.add('visible');
+        document.getElementById('previewBox').style.display = 'block';
+    }, 1000);
 }
 
-async function registrarAsiento() {
+// --- GUARDAR EN MEMORIA ---
+function registrarAsiento() {
     if (!asientoTemporal || !asientoTemporal.lineas) {
-        alert('Primero clasifica con IA o sube un XML');
+        alert('Primero clasifica con IA antes de guardar.');
         return;
     }
 
-    const status = document.getElementById('xmlStatus');
-    status.textContent = '💾 Guardando en servidor...';
-    status.style.color = '#0078d4';
-
-    try {
-        const res = await fetch('/api/guardar-asiento', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(asientoTemporal)
+    const db = getAsientosDB();
+    
+    // Insertar cada línea del asiento en la "Base de Datos"
+    asientoTemporal.lineas.forEach(l => {
+        db.push({
+            nro: asientoTemporal.nro,
+            fecha: asientoTemporal.fecha,
+            glosa: l.desc,
+            factura: asientoTemporal.factura,
+            cuenta: l.cuenta,
+            debe: l.debe,
+            haber: l.haber
         });
-        
-        if (res.ok) {
-            status.textContent = '✅ Asiento guardado';
-            status.style.color = '#107c10';
-            alert('Asiento registrado en la base de datos.');
-            asientoTemporal = null;
-            document.getElementById('previewBox').classList.remove('visible');
-            document.getElementById('previewBox').style.display = 'none';
-            document.getElementById('txtBase').value = '';
-            document.getElementById('txtIGV').value = '';
-            document.getElementById('txtTotal').value = '';
-            document.getElementById('txtGlosa').value = '';
-            cargarLibro();
-        }
-    } catch (e) {
-        status.textContent = '❌ Error al guardar';
-        status.style.color = '#a80000';
-    }
+    });
+
+    saveAsientosDB(db);
+
+    alert('✅ Asiento guardado en la memoria local.');
+    asientoTemporal = null;
+    document.getElementById('previewBox').classList.remove('visible');
+    document.getElementById('previewBox').style.display = 'none';
+    document.getElementById('txtBase').value = '';
+    document.getElementById('txtIGV').value = '';
+    document.getElementById('txtTotal').value = '';
+    document.getElementById('txtGlosa').value = '';
+    document.getElementById('xmlStatus').textContent = 'Esperando archivo...';
+    document.getElementById('xmlStatus').style.color = '#666';
+    document.getElementById('inputXML').value = '';
+    
+    cargarLibro();
 }
 
-async function cargarLibro() {
+// --- CARGAR VISTAS ---
+function cargarLibro() {
     const tbody = document.querySelector('#tablaLibro tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
-    try {
-        const res = await fetch('/api/obtener-asientos');
-        const asientos = await res.json();
-        asientos.forEach(a => {
-            tbody.innerHTML += `<tr><td>${a.nro}</td><td>${a.fecha}</td><td>${a.glosa}</td><td>${a.factura}</td><td>${a.cuenta}</td><td class="num">${a.debe.toFixed(2)}</td><td class="num">${a.haber.toFixed(2)}</td></tr>`;
-        });
-    } catch (e) { console.error(e); }
+    
+    const asientos = getAsientosDB();
+    asientos.forEach(a => {
+        tbody.innerHTML += `<tr><td>${a.nro}</td><td>${a.fecha}</td><td>${a.glosa}</td><td>${a.factura}</td><td>${a.cuenta}</td><td class="num">${a.debe.toFixed(2)}</td><td class="num">${a.haber.toFixed(2)}</td></tr>`;
+    });
 }
 
-async function calcularBalance317() {
+function calcularBalance317() {
     const tbody = document.querySelector('#tablaBalance tbody');
     tbody.innerHTML = '';
-    try {
-        const res = await fetch('/api/obtener-asientos');
-        const asientos = await res.json();
-        const saldos = {};
-        asientos.forEach(a => {
-            if (!saldos[a.cuenta]) saldos[a.cuenta] = { debe: 0, haber: 0 };
-            saldos[a.cuenta].debe += a.debe;
-            saldos[a.cuenta].haber += a.haber;
-        });
-        for (const cta in saldos) {
-            tbody.innerHTML += `<tr><td>${cta}</td><td class="num">${saldos[cta].debe.toFixed(2)}</td><td class="num">${saldos[cta].haber.toFixed(2)}</td></tr>`;
-        }
-    } catch (e) { console.error(e); }
+    const asientos = getAsientosDB();
+    const saldos = {};
+    
+    asientos.forEach(a => {
+        if (!saldos[a.cuenta]) saldos[a.cuenta] = { debe: 0, haber: 0 };
+        saldos[a.cuenta].debe += a.debe;
+        saldos[a.cuenta].haber += a.haber;
+    });
+    
+    for (const cta in saldos) {
+        tbody.innerHTML += `<tr><td>${cta}</td><td class="num">${saldos[cta].debe.toFixed(2)}</td><td class="num">${saldos[cta].haber.toFixed(2)}</td></tr>`;
+    }
 }
 
-// Placeholder para ESF y ER
-function calcularESF() { alert('El ESF se calculará desde los saldos de la BD.'); }
-function calcularER() { alert('El ER se calculará desde los saldos de la BD.'); }
+function calcularESF() { alert('El ESF se calculará desde los saldos de la memoria.'); }
+function calcularER() { alert('El ER se calculará desde los saldos de la memoria.'); }
 
 </script>
 </body>
