@@ -417,10 +417,11 @@ table tr:hover td { background: #f9f9f9; }
                                 <div class="excel-cell-input"><input type="text" id="txtGlosa" placeholder="Ej: VENTA DE MERCADERIA"></div>
                             </div>
 
-                            <div style="margin-top:14px; margin-bottom:8px;">
-                                <button type="button" class="btn btn-ghost" onclick="toggleVistaPreview()" id="btnTogglePreview">
-                                    ▶ Mostrar vista previa del asiento
-                                </button>
+                          <div style="margin-top: 5px; text-align: right;">
+                   <button type="button" class="btn btn-primary" onclick="consultarIA()" style="font-size: 11px; padding: 4px 8px;">
+                        🪄 Clasificar con IA
+                          </button>
+                          </div>
                             </div>
 
                             <div class="preview-box" id="previewBox">
@@ -2455,6 +2456,35 @@ document.addEventListener('keydown', function(e) {
         iniciarSesion();
     }
 });
+            async function consultarIA() {
+    const glosa = document.getElementById('txtGlosa').value;
+    if (!glosa) {
+        alert("Escribe algo en la Glosa primero para que la IA lo analice.");
+        return;
+    }
+
+    mostrarSync('Consultando a la IA...', 'syncing');
+    
+    try {
+        const respuesta = await fetch('/api/clasificar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ descripcion: glosa })
+        });
+        
+        const datos = await respuesta.json();
+        
+        if (datos.cuenta) {
+            mostrarSync(`Clasificado: ${datos.cuenta}`, 'success');
+            alert(`🤖 ¡Clasificación Exitosa!\n\nCuenta PCGE: ${datos.cuenta}\nFuente: ${datos.fuente}`);
+        } else {
+            mostrarSync('No se pudo clasificar', 'error');
+        }
+    } catch (error) {
+        mostrarSync('Error de conexión', 'error');
+        alert("Error conectando con el servidor Python.");
+    }
+}
 </script>
 </body>
 </html>
