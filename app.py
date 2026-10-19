@@ -1,33 +1,50 @@
-
+import os
 from flask import Flask, render_template, request, jsonify
+from groq import Groq
 
 app = Flask(__name__)
 
-# 1. Ruta para mostrar tu panel visual (HTML)
 @app.route('/')
 def inicio():
     return render_template('index.html')
 
-# 2. Ruta para la IA (Por ahora simulada para que veas que funciona)
 @app.route('/api/clasificar', methods=['POST'])
 def clasificar():
     datos = request.json
     descripcion = datos.get('descripcion', '').upper()
     
-    # Simulamos que la IA piensa por 1 segundo
-    print(f"🤖 Analizando: {descripcion}")
+    if not descripcion:
+        return jsonify({"error": "Falta la descripción"}), 400
+
+    # Conexión a Groq
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        return jsonify({"cuenta": "2011", "fuente": "Error: Falta API KEY en Render"})
+
+    client = Groq(api_key=api_key)
     
-    # Lógica básica de prueba
-    cuenta = "2011"
-    if "LUZ" in descripcion or "AGUA" in descripcion: cuenta = "6361"
-    if "FLETE" in descripcion or "TRANSPORTE" in descripcion: cuenta = "6311"
-    if "BALDE" in descripcion: cuenta = "251"
+    prompt = f"""
+    Eres un contador peruano experto en el PCGE. Clasifica esta factura.
+    Opciones válidas: 2011 (Mercaderías), 241 (Materias primas), 251 (Envases), 6311 (Transporte), 6561 (Combustible), 6361 (Luz).
+    Factura: {descripcion}
+    Responde ÚNICAMENTE con el código numérico de 4 dígitos. Sin explicaciones.
+    """
     
-    return jsonify({
-        "cuenta": cuenta,
-        "fuente": "Simulación Python (Pronto Ollama)"
-    })
+    try:
+        completion = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        cuenta_ia = completion.choices[0].message.content.strip()
+        cuenta_ia = ''.join(filter(str.isdigit, cuenta_ia)) 
+        
+        return jsonify({
+            "cuenta": cuenta_ia,
+            "fuente": "Inteligencia Artificial (Groq)"
+        })
+    except Exception as e:
+        return jsonify({"error": f"Error con la IA: {e}"}), 500
 
 if __name__ == '__main__':
-    print("🚀 Servidor corriendo en http://localhost:5000")
-app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
