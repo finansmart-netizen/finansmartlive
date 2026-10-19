@@ -3,73 +3,81 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinanSmart - IA Local</title>
+<title>FinanSmart IA - Sistema Contable Autónomo</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Calibri:wght@400;700&family=Segoe+UI:wght@400;600;700&display=swap');
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', 'Calibri', Arial, sans-serif; font-size: 12px; }
+@import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; }
 :root {
-    --excel-green: #217346; --excel-green-light: #e6f4ea; --excel-green-dark: #185c37;
-    --excel-blue: #0078d4; --excel-border: #d0d7de; --excel-border-dark: #a0a0a0;
-    --excel-bg: #fff; --excel-bg-alt: #f3f3f3; --excel-header: #f5f5f5; --excel-text: #1f1f1f;
+    --green: #217346; --green-light: #e6f4ea; --green-dark: #185c37;
+    --blue: #0078d4; --border: #d0d7de; --border-dark: #a0a0a0;
+    --bg-alt: #f3f3f3; --header: #f5f5f5; --text: #1f1f1f;
+    --danger: #a80000; --danger-bg: #fde7e9;
 }
-body { background: #f3f2f1; color: var(--excel-text); overflow: hidden; height: 100vh; }
+body { background: #f3f2f1; color: var(--text); overflow: hidden; height: 100vh; }
 
 /* LOGIN */
-.auth-screen { position: fixed; inset: 0; z-index: 9999; background: linear-gradient(135deg, #217346 0%, #185c37 100%); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.auth-screen { position: fixed; inset: 0; z-index: 9999; background: linear-gradient(135deg, #217346 0%, #185c37 100%); display: flex; align-items: center; justify-content: center; }
 .auth-screen.hidden { display: none; }
-.auth-box { background: white; border-radius: 4px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border-top: 6px solid var(--excel-green); }
+.auth-box { background: white; border-radius: 6px; padding: 40px; width: 100%; max-width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); border-top: 6px solid var(--green); }
 .auth-logo { text-align: center; margin-bottom: 24px; }
-.auth-logo .logo-icon { width: 64px; height: 64px; border-radius: 8px; background: var(--excel-green); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; margin-bottom: 12px; }
-.auth-logo h2 { font-size: 20px; font-weight: 700; color: #217346; margin-bottom: 4px; }
+.auth-logo .logo-icon { width: 64px; height: 64px; border-radius: 8px; background: var(--green); color: white; display: inline-flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; margin-bottom: 12px; }
+.auth-logo h2 { font-size: 22px; font-weight: 700; color: var(--green); margin-bottom: 4px; }
 .auth-logo p { font-size: 11px; color: #666; letter-spacing: 1px; }
-.auth-form-group { margin-bottom: 14px; }
-.auth-form-label { display: block; font-size: 12px; font-weight: 600; color: #333; margin-bottom: 6px; }
-.auth-input { width: 100%; padding: 10px 12px; border: 1px solid #d0d7de; border-radius: 2px; font-size: 13px; }
-.auth-btn { width: 100%; padding: 12px; border: none; border-radius: 2px; background: var(--excel-green); color: white; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 10px; }
-.auth-btn:hover { background: var(--excel-green-dark); }
+.auth-form-group { margin-bottom: 16px; }
+.auth-form-label { display: block; font-weight: 600; margin-bottom: 6px; }
+.auth-input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; }
+.auth-btn { width: 100%; padding: 12px; border: none; border-radius: 4px; background: var(--green); color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+.auth-btn:hover { background: var(--green-dark); }
 
-/* APP */
+/* APP LAYOUT */
 .app { display: none; height: 100vh; flex-direction: column; }
 .app.hidden { display: none; }
 .app:not(.hidden) { display: flex; }
-.excel-ribbon { background: var(--excel-green); color: white; display: flex; flex-direction: column; }
-.ribbon-title { display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-bottom: 1px solid rgba(255,255,255,0.15); }
-.ribbon-icon { width: 26px; height: 26px; background: white; color: var(--excel-green); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; }
-.ribbon-title h1 { font-size: 14px; font-weight: 600; }
-.ribbon-tabs { display: flex; background: #185c37; padding: 0 8px; overflow-x: auto; }
-.ribbon-tab { padding: 6px 14px; font-size: 12px; color: rgba(255,255,255,0.85); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
-.ribbon-tab.active { background: var(--excel-green-light); color: var(--excel-green); border-bottom-color: white; font-weight: 600; }
-.excel-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: white; }
-.excel-sidebar { display: flex; flex-direction: row; height: 100%; overflow: hidden; flex: 1; }
-.excel-sidebar-left { width: 200px; background: #f5f5f5; border-right: 1px solid var(--excel-border); overflow-y: auto; padding: 8px 0; flex-shrink: 0; }
-.sidebar-group { font-size: 10px; font-weight: 700; color: #666; padding: 10px 14px 4px; text-transform: uppercase; }
-.sidebar-item { padding: 6px 14px 6px 22px; font-size: 12px; cursor: pointer; color: #333; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
-.sidebar-item:hover { background: #f0f0f0; }
-.sidebar-item.active { background: var(--excel-green-light); color: var(--excel-green-dark); border-left-color: var(--excel-green); font-weight: 600; }
-.excel-workspace { flex: 1; overflow: auto; background: #f3f2f1; padding: 12px; }
-.excel-sheet { background: white; border: 1px solid var(--excel-border); min-height: calc(100vh - 200px); }
-.sheet-title { padding: 8px 14px; background: var(--excel-green); color: white; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; }
-.sheet-toolbar { padding: 6px 14px; background: var(--excel-bg-alt); border-bottom: 1px solid var(--excel-border); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.sheet-toolbar .btn { padding: 4px 12px; border: 1px solid var(--excel-border); background: white; color: #333; font-size: 11px; cursor: pointer; border-radius: 2px; }
-.sheet-toolbar .btn.primary { background: var(--excel-green); color: white; border-color: var(--excel-green); }
-table { border-collapse: collapse; width: 100%; font-size: 12px; }
-table th, table td { border: 1px solid var(--excel-border-dark); padding: 4px 8px; text-align: left; height: 22px; }
-table th { background: var(--excel-header); color: #333; font-weight: 700; text-align: center; font-size: 11px; }
-table td.num, table th.num { text-align: right; }
-.excel-form-row { display: grid; gap: 0; margin-bottom: 0; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--excel-border-dark); border-bottom: none; }
-.excel-form-row-3 { grid-template-columns: repeat(3, 1fr); }
-.excel-cell-label { background: var(--excel-header); padding: 8px 12px; font-weight: 700; font-size: 11px; color: #333; border-right: 1px solid var(--excel-border-dark); display: flex; align-items: center; }
-.excel-cell-input { padding: 4px; }
-.excel-cell-input input, .excel-cell-input select { width: 100%; padding: 6px 8px; border: none; font-size: 12px; background: white; }
+.topbar { background: var(--green); color: white; display: flex; flex-direction: column; }
+.topbar-title { display: flex; align-items: center; gap: 10px; padding: 8px 16px; }
+.topbar-icon { width: 24px; height: 24px; background: white; color: var(--green); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-weight: 900; }
+.topbar-tabs { display: flex; background: var(--green-dark); padding: 0 8px; overflow-x: auto; }
+.tab { padding: 8px 16px; color: rgba(255,255,255,0.8); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; font-weight: 600; }
+.tab.active { background: var(--green-light); color: var(--green); border-bottom-color: white; }
+.main-area { flex: 1; display: flex; overflow: hidden; }
+.sidebar { width: 220px; background: #f8f9fa; border-right: 1px solid var(--border); overflow-y: auto; padding: 10px 0; }
+.sidebar-group { font-size: 10px; font-weight: 700; color: #666; padding: 12px 16px 4px; text-transform: uppercase; }
+.sidebar-item { padding: 8px 16px; cursor: pointer; color: #333; border-left: 3px solid transparent; display: flex; align-items: center; gap: 8px; }
+.sidebar-item:hover { background: #e9ecef; }
+.sidebar-item.active { background: var(--green-light); color: var(--green-dark); border-left-color: var(--green); font-weight: 600; }
+.workspace { flex: 1; overflow: auto; padding: 20px; background: #f3f2f1; }
+
+/* COMPONENTES */
+.card { background: white; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.card-header { background: var(--green); color: white; padding: 10px 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+.card-body { padding: 16px; }
+.form-row { display: flex; gap: 16px; margin-bottom: 12px; }
+.form-group { flex: 1; display: flex; flex-direction: column; }
+.form-group label { font-weight: 600; font-size: 11px; color: #555; margin-bottom: 4px; }
+.form-group input, .form-group select { padding: 8px; border: 1px solid var(--border); border-radius: 4px; }
+.form-group input[readonly] { background: #f0f0f0; }
+.btn { padding: 8px 16px; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+.btn-primary { background: var(--green); color: white; border-color: var(--green); }
+.btn-primary:hover { background: var(--green-dark); }
+.btn-blue { background: var(--blue); color: white; border-color: var(--blue); }
+.btn-blue:hover { background: #005a9e; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+th { background: var(--header); font-weight: 600; font-size: 12px; }
+.text-right { text-align: right; }
+.alert { padding: 12px; border-radius: 4px; margin-bottom: 16px; display: none; }
+.alert-success { background: var(--green-light); color: var(--green-dark); border-left: 4px solid var(--green); }
+.alert-error { background: var(--danger-bg); color: var(--danger); border-left: 4px solid var(--danger); }
+.alert.show { display: block; }
+
+/* DASHBOARD CARDS */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.kpi-card { background: white; padding: 20px; border-radius: 4px; border: 1px solid var(--border); text-align: center; }
+.kpi-title { font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
+.kpi-value { font-size: 24px; font-weight: 700; color: var(--green); }
+
 .module { display: none; }
 .module.active { display: block; }
-.btn { padding: 6px 14px; border: 1px solid var(--excel-border); background: white; color: #333; font-size: 12px; cursor: pointer; border-radius: 2px; }
-.btn-primary { background: var(--excel-green); color: white; border-color: var(--excel-green); }
-.btn-success { background: var(--excel-green); color: white; border-color: var(--excel-green); }
-.btn-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
-.preview-box { border: 1px solid var(--excel-border-dark); margin-top: 10px; display: none; }
-.preview-box.visible { display: block; }
-.preview-box::before { content: 'Vista previa del asiento'; display: block; padding: 6px 10px; background: var(--excel-bg-alt); font-size: 10px; font-weight: 700; color: #666; }
 </style>
 </head>
 <body>
@@ -79,285 +87,225 @@ table td.num, table th.num { text-align: right; }
     <div class="auth-box">
         <div class="auth-logo">
             <div class="logo-icon">F</div>
-            <h2>FinanSmart</h2>
-            <p>HOJA DE CÁLCULO CONTABLE</p>
+            <h2>FinanSmart IA</h2>
+            <p>SISTEMA CONTABLE AUTÓNOMO</p>
         </div>
         <div class="auth-form-group">
             <label class="auth-form-label">Usuario</label>
-            <input type="text" class="auth-input" id="loginUser" value="admin" placeholder="Usuario">
+            <input type="text" class="auth-input" id="loginUser" value="admin">
         </div>
         <div class="auth-form-group">
             <label class="auth-form-label">Contraseña</label>
-            <input type="password" class="auth-input" id="loginPass" value="admin123" placeholder="Contraseña">
+            <input type="password" class="auth-input" id="loginPass" value="admin123">
         </div>
-        <button class="auth-btn" onclick="iniciarSesion()">Iniciar sesión</button>
+        <button class="auth-btn" onclick="iniciarSesion()">Ingresar al Sistema</button>
     </div>
 </div>
 
 <!-- APP -->
 <div class="app hidden" id="appMain">
-    <div class="excel-ribbon">
-        <div class="ribbon-title">
-            <div class="ribbon-icon">X</div>
-            <h1>FinanSmart.xlsx</h1>
-            <span class="subtitle" id="tituloModuloActual">Dashboard</span>
+    <div class="topbar">
+        <div class="topbar-title">
+            <div class="topbar-icon">X</div>
+            <strong>FinanSmart IA</strong>
+            <span style="font-size: 11px; opacity:0.8; margin-left: auto;">Automatización Contable Total</span>
         </div>
-        <div class="ribbon-tabs">
-            <div class="ribbon-tab active" onclick="irModulo('dashboard')">Inicio</div>
-            <div class="ribbon-tab" onclick="irModulo('asientos')">Movimiento</div>
-            <div class="ribbon-tab" onclick="irModulo('libro')">Registro de Gastos e Ingresos</div>
-            <div class="ribbon-tab" onclick="irModulo('balance')">Balance 3.17</div>
-            <div class="ribbon-tab" onclick="irModulo('esf')">Estado Financiero</div>
-            <div class="ribbon-tab" onclick="irModulo('er')">Resultados</div>
-            <div class="ribbon-tab" onclick="irModulo('pcge')">Plan Contable</div>
-            <div class="ribbon-tab" onclick="irModulo('config')">Plantillas</div>
-            <div class="ribbon-tab" onclick="irModulo('datos')">Mis Datos</div>
-            <div class="ribbon-tab" onclick="irModulo('usuarios')">Usuarios</div>
+        <div class="topbar-tabs">
+            <div class="tab active" onclick="irModulo('dashboard')">Dashboard</div>
+            <div class="tab" onclick="irModulo('movimiento')">Movimiento (IA)</div>
+            <div class="tab" onclick="irModulo('libro')">Libro Diario</div>
+            <div class="tab" onclick="irModulo('esf')">Estado Financiero</div>
+            <div class="tab" onclick="irModulo('er')">Resultados</div>
         </div>
     </div>
 
-    <div class="excel-main">
-        <div class="excel-sidebar">
-            <div class="excel-sidebar-left">
-                <div class="sidebar-group">Hojas del libro</div>
-                <div class="sidebar-item active" onclick="irModulo('dashboard')">📊 Dashboard</div>
-                <div class="sidebar-item" onclick="irModulo('asientos')">📝 Movimiento</div>
-                <div class="sidebar-item" onclick="irModulo('libro')">📖 Registro de Gastos e Ingresos</div>
-                <div class="sidebar-group">Reportes</div>
-                <div class="sidebar-item" onclick="irModulo('balance')">📋 Balance 3.17</div>
-                <div class="sidebar-item" onclick="irModulo('esf')">💰 Estado Financiero</div>
-                <div class="sidebar-item" onclick="irModulo('er')">📈 Resultados</div>
-                <div class="sidebar-group">Sistema</div>
-                <div class="sidebar-item" onclick="irModulo('pcge')">📚 Plan Contable</div>
-                <div class="sidebar-item" onclick="irModulo('config')">⚙️ Plantillas</div>
-                <div class="sidebar-item" onclick="irModulo('datos')">👤 Mis Datos</div>
-                <div class="sidebar-item" onclick="irModulo('usuarios')">👥 Usuarios</div>
-            </div>
-            <div class="excel-workspace">
-                
-                <!-- DASHBOARD -->
-                <section class="module active" id="mod-dashboard">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Dashboard</span></div>
-                        <div style="padding:20px;">
-                            <h3>Bienvenido al sistema IA Local</h3>
-                            <p>Sube un XML en Movimiento. El motor local lo leerá, clasificará y lo guardará en la memoria (LocalStorage).</p>
-                        </div>
+    <div class="main-area">
+        <div class="sidebar">
+            <div class="sidebar-group">Principal</div>
+            <div class="sidebar-item active" onclick="irModulo('dashboard')">📊 Dashboard</div>
+            <div class="sidebar-item" onclick="irModulo('movimiento')">🤖 Movimiento IA</div>
+            <div class="sidebar-group">Reportes</div>
+            <div class="sidebar-item" onclick="irModulo('libro')">📖 Libro Diario</div>
+            <div class="sidebar-item" onclick="irModulo('esf')">💰 Estado Financiero</div>
+            <div class="sidebar-item" onclick="irModulo('er')">📈 Resultados</div>
+        </div>
+
+        <div class="workspace">
+            <!-- DASHBOARD -->
+            <section class="module active" id="mod-dashboard">
+                <h2 style="margin-bottom:20px; color:#333;">Resumen Financiero</h2>
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-title">Total Ingresos (Ventas)</div>
+                        <div class="kpi-value" id="kpiIngresos">S/ 0.00</div>
                     </div>
-                </section>
+                    <div class="kpi-card">
+                        <div class="kpi-title">Total Gastos (Compras)</div>
+                        <div class="kpi-value" id="kpiGastos">S/ 0.00</div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-title">IGV por Pagar</div>
+                        <div class="kpi-value" id="kpiIGV">S/ 0.00</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">Últimos movimientos registrados por la IA</div>
+                    <div class="card-body" style="padding:0;">
+                        <table id="tablaUltimos">
+                            <thead><tr><th>Fecha</th><th>Glosa</th><th>Cuenta</th><th class="text-right">Debe</th><th class="text-right">Haber</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
 
-                <!-- MOVIMIENTO -->
-                <section class="module" id="mod-asientos">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Movimiento</span></div>
-                        <div style="padding:12px;">
-                            <div style="padding:12px; background:#e6f4ea; border-left:4px solid #217346; margin-bottom:15px; display:flex; gap:15px; align-items:center;">
-                                <b>📄 XML SUNAT:</b>
-                                <input type="file" id="inputXML" accept=".xml" onchange="leerXML(event)">
-                                <span id="xmlStatus">Esperando archivo...</span>
-                            </div>
-                            
-                            <div class="excel-form-row">
-                                <div class="excel-cell-label">Glosa</div>
-                                <div class="excel-cell-input"><input type="text" id="txtGlosa"></div>
-                            </div>
-                            <div class="excel-form-row excel-form-row-3">
-                                <div class="excel-cell-label">Base</div>
-                                <div class="excel-cell-label">IGV</div>
-                                <div class="excel-cell-label">Total</div>
-                            </div>
-                            <div class="excel-form-row excel-form-row-3">
-                                <div class="excel-cell-input"><input type="text" id="txtBase" readonly></div>
-                                <div class="excel-cell-input"><input type="text" id="txtIGV" readonly></div>
-                                <div class="excel-cell-input"><input type="text" id="txtTotal" readonly></div>
-                            </div>
+            <!-- MOVIMIENTO IA -->
+            <section class="module" id="mod-movimiento">
+                <div class="card">
+                    <div class="card-header">Entrada de Facturas (XML SUNAT)</div>
+                    <div class="card-body">
+                        <div style="padding:16px; background:var(--green-light); border-left:4px solid var(--green); margin-bottom:20px; border-radius:4px; display:flex; align-items:center; gap:16px;">
+                            <strong>📄 Cargar XML:</strong>
+                            <input type="file" id="inputXML" accept=".xml" onchange="procesarXML(event)" style="padding:4px;">
+                            <span id="xmlStatus" style="font-weight:600; color:#666;">Esperando archivo...</span>
+                        </div>
 
-                            <div style="margin-top:15px; display:flex; gap:10px;">
-                                <button class="btn btn-primary" onclick="consultarIA()">🪄 Clasificar con IA</button>
-                                <button class="btn btn-success" onclick="registrarAsiento()">💾 Registrar Asiento</button>
-                            </div>
+                        <div id="alertaIA" class="alert"></div>
 
-                            <div class="preview-box" id="previewBox">
-                                <table id="tablaPreview">
-                                    <thead><tr><th>Cuenta</th><th>Descripción</th><th class="num">Debe</th><th class="num">Haber</th></tr></thead>
-                                    <tbody></tbody>
-                                </table>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Glosa / Descripción</label>
+                                <input type="text" id="txtGlosa" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label>N° Factura</label>
+                                <input type="text" id="txtFactura" readonly>
                             </div>
                         </div>
-                    </div>
-                </section>
-
-                <!-- LIBRO (Desde LocalStorage) -->
-                <section class="module" id="mod-libro">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Registro de Gastos e Ingresos</span></div>
-                        <div class="sheet-toolbar">
-                            <button class="btn primary" onclick="cargarLibro()">Recargar Memoria</button>
-                        </div>
-                        <div style="overflow:auto; max-height:calc(100vh - 300px);">
-                            <table id="tablaLibro">
-                                <thead><tr><th>N°</th><th>Fecha</th><th>Glosa</th><th>Factura</th><th>Cuenta</th><th class="num">Debe</th><th class="num">Haber</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- BALANCE 3.17 -->
-                <section class="module" id="mod-balance">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Balance 3.17</span></div>
-                        <div style="padding:20px;">
-                            <button class="btn btn-primary" onclick="calcularBalance317()">Calcular desde Memoria</button>
-                            <table id="tablaBalance" style="margin-top:15px;">
-                                <thead><tr><th>Cuenta</th><th>Debe</th><th>Haber</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- ESF -->
-                <section class="module" id="mod-esf">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Estado Financiero</span></div>
-                        <div style="padding:20px;">
-                            <button class="btn btn-primary" onclick="calcularESF()">Calcular desde Memoria</button>
-                            <table id="tablaESF" style="margin-top:15px;">
-                                <thead><tr><th>Cuenta</th><th>Saldo</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- ER -->
-                <section class="module" id="mod-er">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Resultados</span></div>
-                        <div style="padding:20px;">
-                            <button class="btn btn-primary" onclick="calcularER()">Calcular desde Memoria</button>
-                            <table id="tablaER" style="margin-top:15px;">
-                                <thead><tr><th>Cuenta</th><th>Monto</th></tr></thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- PCGE -->
-                <section class="module" id="mod-pcge">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Plan Contable</span></div>
-                        <div style="padding:20px;">
-                            <p>Catálogo PCGE cargado en el sistema local.</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- CONFIG / PLANTILLAS -->
-                <section class="module" id="mod-config">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Plantillas</span></div>
-                        <div style="padding:20px;">
-                            <p>La IA usa las reglas locales.</p>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- DATOS (Contexto IA) -->
-                <section class="module" id="mod-datos">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Contexto para la IA</span></div>
-                        <div style="padding:20px;">
-                            <div class="excel-form-row">
-                                <div class="excel-cell-label">Giro del Negocio</div>
-                                <div class="excel-cell-input">
-                                    <select id="miGiro">
-                                        <option value="ferreteria">Ferretería / Construcción</option>
-                                        <option value="restaurante">Restaurante</option>
-                                        <option value="servicios">Servicios Profesionales</option>
-                                        <option value="general">Comercio General</option>
-                                    </select>
-                                </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Base Imponible</label>
+                                <input type="text" id="txtBase" readonly>
                             </div>
-                            <div class="excel-form-row">
-                                <div class="excel-cell-label">Reglas Especiales</div>
-                                <div class="excel-cell-input"><input type="text" id="miContexto" placeholder="Ej: Compramos cemento para revender."></div>
+                            <div class="form-group">
+                                <label>IGV (18%)</label>
+                                <input type="text" id="txtIGV" readonly>
                             </div>
-                            <div class="btn-row" style="margin-top:15px;">
-                                <button class="btn btn-primary" onclick="guardarContexto()">Guardar Contexto</button>
+                            <div class="form-group">
+                                <label>Total</label>
+                                <input type="text" id="txtTotal" readonly>
                             </div>
                         </div>
-                    </div>
-                </section>
 
-                <!-- USUARIOS -->
-                <section class="module" id="mod-usuarios">
-                    <div class="excel-sheet">
-                        <div class="sheet-title"><span>Usuarios</span></div>
-                        <div style="padding:20px;">
-                            <p>Gestión de usuarios en el sistema local.</p>
+                        <div style="margin-top:20px; text-align:right;">
+                            <button class="btn btn-blue" onclick="clasificarYRegistrarIA()">🪄 Clasificar y Registrar Automáticamente</button>
                         </div>
                     </div>
-                </section>
+                </div>
 
-            </div>
+                <div class="card" id="cardPreview" style="display:none;">
+                    <div class="card-header" style="background:#0078d4;">Asiento Generado por la IA</div>
+                    <div class="card-body" style="padding:0;">
+                        <table id="tablaPreview">
+                            <thead><tr><th>Cuenta</th><th>Descripción</th><th class="text-right">Debe</th><th class="text-right">Haber</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LIBRO DIARIO -->
+            <section class="module" id="mod-libro">
+                <div class="card">
+                    <div class="card-header">
+                        <span>Libro Diario General</span>
+                        <button class="btn" onclick="cargarLibro()">🔄 Actualizar</button>
+                    </div>
+                    <div class="card-body" style="padding:0; max-height: 500px; overflow-y:auto;">
+                        <table id="tablaLibro">
+                            <thead><tr><th>Fecha</th><th>Glosa</th><th>Factura</th><th>Cuenta</th><th class="text-right">Debe</th><th class="text-right">Haber</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ESF -->
+            <section class="module" id="mod-esf">
+                <div class="card">
+                    <div class="card-header">Estado de Situación Financiera (Acumulado)</div>
+                    <div class="card-body" style="padding:0;">
+                        <table id="tablaESF">
+                            <thead><tr><th>Cuenta</th><th class="text-right">Deudor (Activo)</th><th class="text-right">Acreedor (Pasivo/Pat.)</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ER -->
+            <section class="module" id="mod-er">
+                <div class="card">
+                    <div class="card-header">Estado de Resultados (Acumulado)</div>
+                    <div class="card-body" style="padding:0;">
+                        <table id="tablaER">
+                            <thead><tr><th>Cuenta</th><th class="text-right">Monto</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 </div>
 
 <script>
-let asientoTemporal = null;
-let contextoIA = { giro: 'general', reglas: '' };
-
-// --- SISTEMA DE MEMORIA LOCAL (Reemplaza a la Base de Datos) ---
-function getAsientosDB() {
-    return JSON.parse(localStorage.getItem('finansmart_db') || '[]');
-}
-function saveAsientosDB(asientos) {
-    localStorage.setItem('finansmart_db', JSON.stringify(asientos));
+// =====================================================================
+// 1. BASE DE DATOS LOCAL (LocalStorage)
+// =====================================================================
+function getDB() {
+    return JSON.parse(localStorage.getItem('finansmart_ia_db') || '[]');
 }
 
+function saveDB(data) {
+    localStorage.setItem('finansmart_ia_db', JSON.stringify(data));
+}
+
+// =====================================================================
+// 2. INICIALIZACIÓN Y NAVEGACIÓN
+// =====================================================================
 function iniciarSesion() {
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('appMain').classList.remove('hidden');
-    const saved = localStorage.getItem('ia_contexto');
-    if (saved) {
-        contextoIA = JSON.parse(saved);
-        document.getElementById('miGiro').value = contextoIA.giro;
-        document.getElementById('miContexto').value = contextoIA.reglas;
-    }
-    cargarLibro();
+    actualizarTodo();
 }
 
 function irModulo(nombre) {
     document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
     document.getElementById('mod-' + nombre).classList.add('active');
-    document.querySelectorAll('.sidebar-item, .ribbon-tab').forEach(m => m.classList.remove('active'));
     
-    document.querySelectorAll('.sidebar-item').forEach(m => { if (m.getAttribute('onclick').includes(nombre)) m.classList.add('active'); });
-    document.querySelectorAll('.ribbon-tab').forEach(m => { if (m.getAttribute('onclick').includes(nombre)) m.classList.add('active'); });
-    
-    document.getElementById('tituloModuloActual').textContent = nombre.toUpperCase();
+    document.querySelectorAll('.sidebar-item, .tab').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.sidebar-item').forEach(el => { if(el.getAttribute('onclick').includes(nombre)) el.classList.add('active'); });
+    document.querySelectorAll('.tab').forEach(el => { if(el.getAttribute('onclick').includes(nombre)) el.classList.add('active'); });
+
+    if (nombre === 'dashboard') actualizarTodo();
     if (nombre === 'libro') cargarLibro();
+    if (nombre === 'esf') cargarESF();
+    if (nombre === 'er') cargarER();
 }
 
-function guardarContexto() {
-    contextoIA.giro = document.getElementById('miGiro').value;
-    contextoIA.reglas = document.getElementById('miContexto').value;
-    localStorage.setItem('ia_contexto', JSON.stringify(contextoIA));
-    alert('✅ Contexto guardado. La IA lo tendrá en cuenta.');
-}
+// =====================================================================
+// 3. LECTURA DE XML (SUNAT)
+// =====================================================================
+let tempAsiento = null;
 
-// --- LECTURA DE XML MEJORADA ---
-function leerXML(event) {
+function procesarXML(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     const status = document.getElementById('xmlStatus');
-    status.textContent = '⏳ Leyendo archivo...';
-    status.style.color = '#0078d4';
+    status.textContent = '⏳ Leyendo XML...';
+    status.style.color = 'var(--blue)';
 
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -365,10 +313,10 @@ function leerXML(event) {
             const xmlText = e.target.result;
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-            
-            if (xmlDoc.querySelector('parsererror')) throw new Error("XML inválido");
 
-            // Función para buscar etiquetas ignorando namespaces
+            if (xmlDoc.querySelector('parsererror')) throw new Error("Formato XML inválido.");
+
+            // Helper para buscar etiquetas sin importar namespace
             const getTag = (tag) => {
                 const el = xmlDoc.getElementsByTagNameNS('*', tag)[0] || xmlDoc.getElementsByTagName(tag)[0];
                 return el ? el.textContent : '';
@@ -379,7 +327,6 @@ function leerXML(event) {
             const igv = total - base;
             const factura = getTag('ID') || 'S/N';
             
-            // Intentar sacar el nombre del proveedor
             let proveedor = 'PROVEEDOR';
             const supplier = xmlDoc.getElementsByTagNameNS('*', 'AccountingSupplierParty')[0];
             if (supplier) {
@@ -389,163 +336,233 @@ function leerXML(event) {
 
             const glosaFinal = `FACTURA ${factura} - ${proveedor}`.toUpperCase();
 
+            // Llenar inputs visuales
             document.getElementById('txtBase').value = base.toFixed(2);
             document.getElementById('txtIGV').value = igv.toFixed(2);
             document.getElementById('txtTotal').value = total.toFixed(2);
             document.getElementById('txtGlosa').value = glosaFinal;
-            
-            status.textContent = '✅ XML Leído Correctamente';
-            status.style.color = '#107c10';
-            
-            asientoTemporal = {
-                nro: Date.now(),
+            document.getElementById('txtFactura').value = factura;
+
+            status.textContent = '✅ XML Listo para IA';
+            status.style.color = 'var(--green)';
+
+            tempAsiento = {
                 fecha: getTag('IssueDate') || new Date().toISOString().split('T')[0],
                 glosa: glosaFinal,
                 factura: factura,
-                base: base, igv: igv, total: total,
-                proveedor: proveedor
+                base: base,
+                igv: igv,
+                total: total
             };
 
-            // Limpiar la vista previa anterior si es que había
-            document.getElementById('previewBox').classList.remove('visible');
+            document.getElementById('cardPreview').style.display = 'none';
+            document.getElementById('alertaIA').classList.remove('show');
 
         } catch (error) {
-            status.textContent = '❌ Error al leer XML';
-            status.style.color = '#a80000';
-            alert("Error: " + error.message);
+            status.textContent = '❌ Error: ' + error.message;
+            status.style.color = 'var(--danger)';
         }
     };
     reader.readAsText(file);
 }
 
-// --- LÓGICA DE IA LOCAL (Reemplaza al servidor backend) ---
-async function consultarIA() {
-    if (!asientoTemporal) { alert('Sube un XML primero'); return; }
-    
-    const status = document.getElementById('xmlStatus');
-    status.textContent = '⏳ IA analizando contexto...';
-    status.style.color = '#0078d4';
-
-    // Simulamos un pequeño retardo para que parezca que está pensando
-    setTimeout(() => {
-        let cuentaGasto = '601'; // Cuenta por defecto (Compras)
-        let cuentaIva = '40111'; // IGV
-        let cuentaPago = '4212'; // Cuentas por pagar
-
-        const glosa = asientoTemporal.glosa.toLowerCase();
-        const reglas = contextoIA.reglas.toLowerCase();
-        const giro = contextoIA.giro;
-
-        // 1. Reglas básicas por palabras clave
-        if (glosa.includes('cemento') || glosa.includes('fierro') || giro === 'ferreteria') {
-            cuentaGasto = '6011'; // Mercaderías (Ferretería)
-        } else if (glosa.includes('comida') || glosa.includes('insumo') || giro === 'restaurante') {
-            cuentaGasto = '6021'; // Insumos (Restaurante)
-        } else if (glosa.includes('servicio') || giro === 'servicios') {
-            cuentaGasto = '631'; // Servicios prestados por terceros
-        }
-
-        // 2. Si el usuario puso reglas en "Mis Datos", buscamos coincidencias
-        if (reglas.length > 0) {
-            const palabrasRegla = reglas.split(',');
-            palabrasRegla.forEach(p => {
-                if (glosa.includes(p.trim())) {
-                    // Aquí podrías poner una lógica más avanzada
-                    console.log("Regla aplicada: ", p);
-                }
-            });
-        }
-        
-        status.textContent = `✅ IA dice: Asignar a cuenta ${cuentaGasto}`;
-        status.style.color = '#107c10';
-        
-        asientoTemporal.lineas = [
-            { cuenta: cuentaGasto, debe: asientoTemporal.base, haber: 0, desc: asientoTemporal.glosa },
-            { cuenta: cuentaIva, debe: asientoTemporal.igv, haber: 0, desc: 'IGV' },
-            { cuenta: cuentaPago, debe: 0, haber: asientoTemporal.total, desc: 'Por pagar' }
-        ];
-        
-        const tbody = document.querySelector('#tablaPreview tbody');
-        tbody.innerHTML = '';
-        asientoTemporal.lineas.forEach(l => {
-            tbody.innerHTML += `<tr><td>${l.cuenta}</td><td>${l.desc}</td><td class="num">${l.debe ? l.debe.toFixed(2) : ''}</td><td class="num">${l.haber ? l.haber.toFixed(2) : ''}</td></tr>`;
-        });
-        document.getElementById('previewBox').classList.add('visible');
-        document.getElementById('previewBox').style.display = 'block';
-    }, 1000);
-}
-
-// --- GUARDAR EN MEMORIA ---
-function registrarAsiento() {
-    if (!asientoTemporal || !asientoTemporal.lineas) {
-        alert('Primero clasifica con IA antes de guardar.');
+// =====================================================================
+// 4. INTELIGENCIA ARTIFICIAL LOCAL (Clasificación y Registro)
+// =====================================================================
+function clasificarYRegistrarIA() {
+    if (!tempAsiento) {
+        alert("Primero carga un archivo XML.");
         return;
     }
 
-    const db = getAsientosDB();
-    
-    // Insertar cada línea del asiento en la "Base de Datos"
-    asientoTemporal.lineas.forEach(l => {
-        db.push({
-            nro: asientoTemporal.nro,
-            fecha: asientoTemporal.fecha,
-            glosa: l.desc,
-            factura: asientoTemporal.factura,
-            cuenta: l.cuenta,
-            debe: l.debe,
-            haber: l.haber
+    const btn = event.target;
+    btn.textContent = '⏳ IA Analizando...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+        // --- LÓGICA DE IA (Simulada con reglas contables) ---
+        // Si la glosa tiene palabras de compra, asume que es un gasto/compra
+        let ctaGasto = '6011'; // Mercaderías
+        let ctaIGV = '40111'; // IGV Crédito Fiscal
+        let ctaPago = '4212'; // Cuentas por Pagar
+
+        const glosa = tempAsiento.glosa.toLowerCase();
+        
+        if (glosa.includes('servicio') || glosa.includes('luz') || glosa.includes('agua') || glosa.includes('internet')) {
+            ctaGasto = '636'; // Servicios básicos
+        } else if (glosa.includes('alquiler')) {
+            ctaGasto = '635'; // Alquileres
+        } else if (glosa.includes('cemento') || glosa.includes('fierro')) {
+            ctaGasto = '6011'; // Materiales de construcción
+        }
+
+        // Crear las líneas del asiento
+        const lineas = [
+            { cta: ctaGasto, desc: tempAsiento.glosa, debe: tempAsiento.base, haber: 0 },
+            { cta: ctaIGV, desc: 'IGV 18%', debe: tempAsiento.igv, haber: 0 },
+            { cta: ctaPago, desc: 'Por pagar factura ' + tempAsiento.factura, debe: 0, haber: tempAsiento.total }
+        ];
+
+        // --- GUARDAR EN LA BASE DE DATOS (LocalStorage) ---
+        const db = getDB();
+        const idAsiento = Date.now();
+
+        lineas.forEach(l => {
+            db.push({
+                id: idAsiento,
+                fecha: tempAsiento.fecha,
+                glosa: l.desc,
+                factura: tempAsiento.factura,
+                cuenta: l.cta,
+                debe: l.debe,
+                haber: l.haber
+            });
         });
-    });
 
-    saveAsientosDB(db);
+        saveDB(db);
 
-    alert('✅ Asiento guardado en la memoria local.');
-    asientoTemporal = null;
-    document.getElementById('previewBox').classList.remove('visible');
-    document.getElementById('previewBox').style.display = 'none';
-    document.getElementById('txtBase').value = '';
-    document.getElementById('txtIGV').value = '';
-    document.getElementById('txtTotal').value = '';
-    document.getElementById('txtGlosa').value = '';
-    document.getElementById('xmlStatus').textContent = 'Esperando archivo...';
-    document.getElementById('xmlStatus').style.color = '#666';
-    document.getElementById('inputXML').value = '';
-    
+        // --- MOSTRAR VISTA PREVIA ---
+        const tbody = document.querySelector('#tablaPreview tbody');
+        tbody.innerHTML = '';
+        lineas.forEach(l => {
+            tbody.innerHTML += `<tr>
+                <td><b>${l.cta}</b></td>
+                <td>${l.desc}</td>
+                <td class="text-right">${l.debe > 0 ? 'S/ ' + l.debe.toFixed(2) : ''}</td>
+                <td class="text-right">${l.haber > 0 ? 'S/ ' + l.haber.toFixed(2) : ''}</td>
+            </tr>`;
+        });
+        document.getElementById('cardPreview').style.display = 'block';
+
+        // --- ALERTA DE ÉXITO ---
+        const alerta = document.getElementById('alertaIA');
+        alerta.className = 'alert alert-success show';
+        alerta.innerHTML = `✅ <b>¡Asiento Registrado Exitosamente!</b><br>La IA ha clasificado la factura en la cuenta <b>${ctaGasto}</b> y los datos ya están reflejados en el Libro Diario, Dashboard y Estados Financieros.`;
+
+        // Restaurar botón
+        btn.textContent = '🪄 Clasificar y Registrar Automáticamente';
+        btn.disabled = false;
+
+        // Refrescar datos
+        actualizarTodo();
+
+    }, 1200); // 1.2 segundos de "pensado" de la IA
+}
+
+// =====================================================================
+// 5. ACTUALIZACIÓN DE VISTAS (Dashboard, Libro, ESF, ER)
+// =====================================================================
+function actualizarTodo() {
+    cargarDashboard();
     cargarLibro();
+    cargarESF();
+    cargarER();
 }
 
-// --- CARGAR VISTAS ---
-function cargarLibro() {
-    const tbody = document.querySelector('#tablaLibro tbody');
-    if (!tbody) return;
+function cargarDashboard() {
+    const db = getDB();
+    let ingresos = 0, gastos = 0, igv = 0;
+
+    // Calculamos totales basados en las cuentas
+    db.forEach(a => {
+        if (a.cuenta.startsWith('60') || a.cuenta.startsWith('63')) gastos += a.debe; // Gastos/Compras
+        if (a.cuenta.startsWith('70')) ingresos += a.haber; // Ventas (si hubiera)
+        if (a.cuenta === '40111') igv += a.debe; // IGV
+    });
+
+    document.getElementById('kpiIngresos').textContent = 'S/ ' + ingresos.toFixed(2);
+    document.getElementById('kpiGastos').textContent = 'S/ ' + gastos.toFixed(2);
+    document.getElementById('kpiIGV').textContent = 'S/ ' + igv.toFixed(2);
+
+    // Últimos movimientos
+    const tbody = document.querySelector('#tablaUltimos tbody');
     tbody.innerHTML = '';
-    
-    const asientos = getAsientosDB();
-    asientos.forEach(a => {
-        tbody.innerHTML += `<tr><td>${a.nro}</td><td>${a.fecha}</td><td>${a.glosa}</td><td>${a.factura}</td><td>${a.cuenta}</td><td class="num">${a.debe.toFixed(2)}</td><td class="num">${a.haber.toFixed(2)}</td></tr>`;
+    const ultimos = db.slice(-6).reverse(); // Mostrar los últimos 6
+    ultimos.forEach(a => {
+        tbody.innerHTML += `<tr>
+            <td>${a.fecha}</td>
+            <td>${a.glosa}</td>
+            <td><b>${a.cuenta}</b></td>
+            <td class="text-right">${a.debe > 0 ? 'S/ '+a.debe.toFixed(2) : ''}</td>
+            <td class="text-right">${a.haber > 0 ? 'S/ '+a.haber.toFixed(2) : ''}</td>
+        </tr>`;
     });
 }
 
-function calcularBalance317() {
-    const tbody = document.querySelector('#tablaBalance tbody');
+function cargarLibro() {
+    const db = getDB();
+    const tbody = document.querySelector('#tablaLibro tbody');
     tbody.innerHTML = '';
-    const asientos = getAsientosDB();
-    const saldos = {};
     
-    asientos.forEach(a => {
-        if (!saldos[a.cuenta]) saldos[a.cuenta] = { debe: 0, haber: 0 };
+    if(db.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#666;">No hay asientos registrados. Sube un XML en Movimiento.</td></tr>';
+        return;
+    }
+
+    db.forEach(a => {
+        tbody.innerHTML += `<tr>
+            <td>${a.fecha}</td>
+            <td>${a.glosa}</td>
+            <td>${a.factura}</td>
+            <td><b>${a.cuenta}</b></td>
+            <td class="text-right">${a.debe > 0 ? a.debe.toFixed(2) : ''}</td>
+            <td class="text-right">${a.haber > 0 ? a.haber.toFixed(2) : ''}</td>
+        </tr>`;
+    });
+}
+
+function cargarESF() {
+    const db = getDB();
+    const saldos = {};
+    db.forEach(a => {
+        if(!saldos[a.cuenta]) saldos[a.cuenta] = { debe: 0, haber: 0 };
         saldos[a.cuenta].debe += a.debe;
         saldos[a.cuenta].haber += a.haber;
     });
+
+    const tbody = document.querySelector('#tablaESF tbody');
+    tbody.innerHTML = '';
     
-    for (const cta in saldos) {
-        tbody.innerHTML += `<tr><td>${cta}</td><td class="num">${saldos[cta].debe.toFixed(2)}</td><td class="num">${saldos[cta].haber.toFixed(2)}</td></tr>`;
+    for(const cta in saldos) {
+        // Solo mostramos cuentas de Balance (Activo, Pasivo, Patrimonio)
+        // En PCGE, las clases 1, 2, 3, 4, 5 son balance. 6 y 7 son resultados.
+        if (['1','2','3','4','5'].includes(cta.charAt(0))) {
+            let saldoDeudor = saldos[cta].debe - saldos[cta].haber;
+            let activo = saldoDeudor > 0 ? saldoDeudor : 0;
+            let pasivo = saldoDeudor < 0 ? Math.abs(saldoDeudor) : 0;
+            
+            tbody.innerHTML += `<tr>
+                <td><b>${cta}</b></td>
+                <td class="text-right">${activo > 0 ? 'S/ '+activo.toFixed(2) : ''}</td>
+                <td class="text-right">${pasivo > 0 ? 'S/ '+pasivo.toFixed(2) : ''}</td>
+            </tr>`;
+        }
     }
 }
 
-function calcularESF() { alert('El ESF se calculará desde los saldos de la memoria.'); }
-function calcularER() { alert('El ER se calculará desde los saldos de la memoria.'); }
+function cargarER() {
+    const db = getDB();
+    const saldos = {};
+    db.forEach(a => {
+        if(!saldos[a.cuenta]) saldos[a.cuenta] = { debe: 0, haber: 0 };
+        saldos[a.cuenta].debe += a.debe;
+        saldos[a.cuenta].haber += a.haber;
+    });
 
+    const tbody = document.querySelector('#tablaER tbody');
+    tbody.innerHTML = '';
+    
+    for(const cta in saldos) {
+        // Solo mostramos cuentas de Resultados (Clases 6 y 7)
+        if (['6','7'].includes(cta.charAt(0))) {
+            let saldo = saldos[cta].debe - saldos[cta].haber;
+            tbody.innerHTML += `<tr>
+                <td><b>${cta}</b></td>
+                <td class="text-right">S/ ${saldo.toFixed(2)}</td>
+            </tr>`;
+        }
+    }
+}
 </script>
 </body>
 </html>
