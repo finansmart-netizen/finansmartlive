@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinanSmart IA - Sistema Contable Autónomo</title>
+<title>FinanSmart IA - Asistente Contable</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; }
@@ -54,7 +54,7 @@ body { background: #f3f2f1; color: var(--text); overflow: hidden; height: 100vh;
 .form-row { display: flex; gap: 16px; margin-bottom: 12px; }
 .form-group { flex: 1; display: flex; flex-direction: column; }
 .form-group label { font-weight: 600; font-size: 11px; color: #555; margin-bottom: 4px; }
-.form-group input, .form-group select { padding: 8px; border: 1px solid var(--border); border-radius: 4px; }
+.form-group input, .form-group select, .form-group textarea { padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-family: inherit; }
 .form-group input[readonly] { background: #f0f0f0; }
 .btn { padding: 8px 16px; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer; font-weight: 600; transition: 0.2s; }
 .btn-primary { background: var(--green); color: white; border-color: var(--green); }
@@ -76,6 +76,17 @@ th { background: var(--header); font-weight: 600; font-size: 12px; }
 .kpi-title { font-size: 12px; color: #666; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; }
 .kpi-value { font-size: 24px; font-weight: 700; color: var(--green); }
 
+/* CHAT UI */
+.chat-container { display: flex; flex-direction: column; height: 500px; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: #fff; }
+.chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #f9f9f9; }
+.message { max-width: 80%; padding: 12px 16px; border-radius: 8px; line-height: 1.4; }
+.message.user { align-self: flex-end; background: var(--green-light); color: var(--green-dark); border-bottom-right-radius: 0; }
+.message.ia { align-self: flex-start; background: white; border: 1px solid var(--border); border-bottom-left-radius: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.chat-input-area { display: flex; padding: 12px; background: white; border-top: 1px solid var(--border); gap: 10px; }
+.chat-input-area input { flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 20px; outline: none; }
+.chat-input-area input:focus { border-color: var(--green); }
+.chat-input-area button { padding: 10px 20px; border-radius: 20px; border: none; background: var(--green); color: white; font-weight: 600; cursor: pointer; }
+
 .module { display: none; }
 .module.active { display: block; }
 </style>
@@ -88,7 +99,7 @@ th { background: var(--header); font-weight: 600; font-size: 12px; }
         <div class="auth-logo">
             <div class="logo-icon">F</div>
             <h2>FinanSmart IA</h2>
-            <p>SISTEMA CONTABLE AUTÓNOMO</p>
+            <p>ASISTENTE CONTABLE INTELIGENTE</p>
         </div>
         <div class="auth-form-group">
             <label class="auth-form-label">Usuario</label>
@@ -124,10 +135,13 @@ th { background: var(--header); font-weight: 600; font-size: 12px; }
             <div class="sidebar-group">Principal</div>
             <div class="sidebar-item active" onclick="irModulo('dashboard')">📊 Dashboard</div>
             <div class="sidebar-item" onclick="irModulo('movimiento')">🤖 Movimiento IA</div>
+            <div class="sidebar-item" onclick="irModulo('chat')">💬 Preguntar a la IA</div>
             <div class="sidebar-group">Reportes</div>
             <div class="sidebar-item" onclick="irModulo('libro')">📖 Libro Diario</div>
             <div class="sidebar-item" onclick="irModulo('esf')">💰 Estado Financiero</div>
             <div class="sidebar-item" onclick="irModulo('er')">📈 Resultados</div>
+            <div class="sidebar-group">Configuración</div>
+            <div class="sidebar-item" onclick="irModulo('config')">⚙️ Contexto IA (Reglas)</div>
         </div>
 
         <div class="workspace">
@@ -214,6 +228,25 @@ th { background: var(--header); font-weight: 600; font-size: 12px; }
                 </div>
             </section>
 
+            <!-- CHAT IA -->
+            <section class="module" id="mod-chat">
+                <h2 style="margin-bottom:20px; color:#333;">Habla con tu Contador IA</h2>
+                <div class="chat-container">
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message ia">
+                            ¡Hola! Soy tu contador IA. He analizado tus movimientos. Puedes preguntarme cosas como:<br><br>
+                            - <i>"¿Cuánto gasté en total?"</i><br>
+                            - <i>"¿Cuánto es mi IGV acumulado?"</i><br>
+                            - <i>"¿Cuál es el último asiento que registraste?"</i>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" placeholder="Escribe tu pregunta aquí..." onkeypress="if(event.key === 'Enter') enviarPregunta()">
+                        <button onclick="enviarPregunta()">Enviar</button>
+                    </div>
+                </div>
+            </section>
+
             <!-- LIBRO DIARIO -->
             <section class="module" id="mod-libro">
                 <div class="card">
@@ -255,20 +288,57 @@ th { background: var(--header); font-weight: 600; font-size: 12px; }
                     </div>
                 </div>
             </section>
+
+            <!-- CONTEXTO IA (NUEVO) -->
+            <section class="module" id="mod-config">
+                <div class="card">
+                    <div class="card-header">Entrenamiento y Reglas de la IA</div>
+                    <div class="card-body">
+                        <p style="margin-bottom:20px; color:#555;">Configura el contexto de tu negocio para que la IA tome mejores decisiones al clasificar las facturas automáticamente.</p>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Giro del Negocio</label>
+                                <select id="selGiro">
+                                    <option value="general">Comercio General (Por defecto)</option>
+                                    <option value="ferreteria">Ferretería / Construcción</option>
+                                    <option value="restaurante">Restaurante / Comidas</option>
+                                    <option value="servicios">Servicios Profesionales</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Reglas Especiales (Una por línea)</label>
+                                <textarea id="txtReglas" rows="5" placeholder="Ejemplo:
+si proveedor es LUCKY -> cuenta 6021
+si dice cemento -> cuenta 6011
+si dice alquiler -> cuenta 635"></textarea>
+                                <span style="font-size:10px; color:#666; margin-top:4px;">La IA leerá estas reglas antes de asignar una cuenta contable.</span>
+                            </div>
+                        </div>
+                        <div style="text-align:right;">
+                            <button class="btn btn-primary" onclick="guardarContexto()">💾 Guardar Contexto</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 </div>
 
 <script>
 // =====================================================================
-// 1. BASE DE DATOS LOCAL (LocalStorage)
+// 1. BASE DE DATOS LOCAL & CONTEXTO
 // =====================================================================
 function getDB() {
     return JSON.parse(localStorage.getItem('finansmart_ia_db') || '[]');
 }
-
 function saveDB(data) {
     localStorage.setItem('finansmart_ia_db', JSON.stringify(data));
+}
+function getContexto() {
+    return JSON.parse(localStorage.getItem('finansmart_contexto') || '{"giro":"general","reglas":""}');
 }
 
 // =====================================================================
@@ -277,6 +347,7 @@ function saveDB(data) {
 function iniciarSesion() {
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('appMain').classList.remove('hidden');
+    cargarContextoUI();
     actualizarTodo();
 }
 
@@ -295,7 +366,23 @@ function irModulo(nombre) {
 }
 
 // =====================================================================
-// 3. LECTURA DE XML (SUNAT)
+// 3. CONTEXTO (CONFIGURACIÓN DE LA IA)
+// =====================================================================
+function cargarContextoUI() {
+    const ctx = getContexto();
+    document.getElementById('selGiro').value = ctx.giro;
+    document.getElementById('txtReglas').value = ctx.reglas;
+}
+
+function guardarContexto() {
+    const giro = document.getElementById('selGiro').value;
+    const reglas = document.getElementById('txtReglas').value;
+    localStorage.setItem('finansmart_contexto', JSON.stringify({giro, reglas}));
+    alert('✅ Contexto guardado. La IA usará estas reglas a partir de ahora.');
+}
+
+// =====================================================================
+// 4. LECTURA DE XML
 // =====================================================================
 let tempAsiento = null;
 
@@ -313,10 +400,8 @@ function procesarXML(event) {
             const xmlText = e.target.result;
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-
             if (xmlDoc.querySelector('parsererror')) throw new Error("Formato XML inválido.");
 
-            // Helper para buscar etiquetas sin importar namespace
             const getTag = (tag) => {
                 const el = xmlDoc.getElementsByTagNameNS('*', tag)[0] || xmlDoc.getElementsByTagName(tag)[0];
                 return el ? el.textContent : '';
@@ -336,7 +421,6 @@ function procesarXML(event) {
 
             const glosaFinal = `FACTURA ${factura} - ${proveedor}`.toUpperCase();
 
-            // Llenar inputs visuales
             document.getElementById('txtBase').value = base.toFixed(2);
             document.getElementById('txtIGV').value = igv.toFixed(2);
             document.getElementById('txtTotal').value = total.toFixed(2);
@@ -349,10 +433,9 @@ function procesarXML(event) {
             tempAsiento = {
                 fecha: getTag('IssueDate') || new Date().toISOString().split('T')[0],
                 glosa: glosaFinal,
+                proveedor: proveedor.toLowerCase(),
                 factura: factura,
-                base: base,
-                igv: igv,
-                total: total
+                base: base, igv: igv, total: total
             };
 
             document.getElementById('cardPreview').style.display = 'none';
@@ -367,90 +450,159 @@ function procesarXML(event) {
 }
 
 // =====================================================================
-// 4. INTELIGENCIA ARTIFICIAL LOCAL (Clasificación y Registro)
+// 5. IA AUTÓNOMA (Usa el Contexto y Registra)
 // =====================================================================
 function clasificarYRegistrarIA() {
-    if (!tempAsiento) {
-        alert("Primero carga un archivo XML.");
-        return;
-    }
+    if (!tempAsiento) { alert("Primero carga un archivo XML."); return; }
 
     const btn = event.target;
-    btn.textContent = '⏳ IA Analizando...';
+    btn.textContent = '⏳ IA Analizando contexto...';
     btn.disabled = true;
 
     setTimeout(() => {
-        // --- LÓGICA DE IA (Simulada con reglas contables) ---
-        // Si la glosa tiene palabras de compra, asume que es un gasto/compra
-        let ctaGasto = '6011'; // Mercaderías
-        let ctaIGV = '40111'; // IGV Crédito Fiscal
-        let ctaPago = '4212'; // Cuentas por Pagar
-
+        const ctx = getContexto();
+        let ctaGasto = '6011'; // Por defecto Mercaderías
+        let motivo = "Regla por defecto (Comercio General)";
         const glosa = tempAsiento.glosa.toLowerCase();
-        
-        if (glosa.includes('servicio') || glosa.includes('luz') || glosa.includes('agua') || glosa.includes('internet')) {
-            ctaGasto = '636'; // Servicios básicos
-        } else if (glosa.includes('alquiler')) {
-            ctaGasto = '635'; // Alquileres
-        } else if (glosa.includes('cemento') || glosa.includes('fierro')) {
-            ctaGasto = '6011'; // Materiales de construcción
+        const proveedor = tempAsiento.proveedor;
+
+        // --- LÓGICA DE IA CON REGLAS PERSONALIZADAS ---
+        let reglaAplicada = false;
+        if (ctx.reglas.trim() !== "") {
+            const lineasReglas = ctx.reglas.toLowerCase().split('\n');
+            for (let regla of lineasReglas) {
+                // Buscar formato "si [texto] -> cuenta [numero]"
+                if (regla.includes('->')) {
+                    const [condicion, accion] = regla.split('->');
+                    const buscar = condicion.replace('si', '').replace('proveedor es', '').replace('dice', '').trim();
+                    const cuentaMatch = accion.match(/\d+/);
+                    
+                    if (cuentaMatch && (glosa.includes(buscar) || proveedor.includes(buscar))) {
+                        ctaGasto = cuentaMatch[0];
+                        motivo = `Regla personalizada aplicada: "${buscar}"`;
+                        reglaAplicada = true;
+                        break;
+                    }
+                }
+            }
         }
 
-        // Crear las líneas del asiento
+        // Si no hubo regla personalizada, usamos el Giro
+        if (!reglaAplicada) {
+            if (ctx.giro === 'ferreteria' || glosa.includes('cemento') || glosa.includes('fierro')) {
+                ctaGasto = '6011'; // Materiales
+                motivo = "Giro: Ferretería / Construcción";
+            } else if (ctx.giro === 'restaurante' || glosa.includes('comida') || glosa.includes('insumo')) {
+                ctaGasto = '6021'; // Insumos
+                motivo = "Giro: Restaurante";
+            } else if (ctx.giro === 'servicios' || glosa.includes('servicio') || glosa.includes('luz')) {
+                ctaGasto = '636'; // Servicios básicos
+                motivo = "Giro: Servicios";
+            }
+        }
+
+        const ctaIGV = '40111'; // IGV Crédito Fiscal
+        const ctaPago = '4212'; // Cuentas por Pagar
+
         const lineas = [
             { cta: ctaGasto, desc: tempAsiento.glosa, debe: tempAsiento.base, haber: 0 },
             { cta: ctaIGV, desc: 'IGV 18%', debe: tempAsiento.igv, haber: 0 },
             { cta: ctaPago, desc: 'Por pagar factura ' + tempAsiento.factura, debe: 0, haber: tempAsiento.total }
         ];
 
-        // --- GUARDAR EN LA BASE DE DATOS (LocalStorage) ---
+        // Guardar en BD
         const db = getDB();
         const idAsiento = Date.now();
-
         lineas.forEach(l => {
             db.push({
-                id: idAsiento,
-                fecha: tempAsiento.fecha,
-                glosa: l.desc,
-                factura: tempAsiento.factura,
-                cuenta: l.cta,
-                debe: l.debe,
-                haber: l.haber
+                id: idAsiento, fecha: tempAsiento.fecha, glosa: l.desc,
+                factura: tempAsiento.factura, cuenta: l.cta, debe: l.debe, haber: l.haber
             });
         });
-
         saveDB(db);
 
-        // --- MOSTRAR VISTA PREVIA ---
+        // Mostrar Preview
         const tbody = document.querySelector('#tablaPreview tbody');
         tbody.innerHTML = '';
         lineas.forEach(l => {
             tbody.innerHTML += `<tr>
-                <td><b>${l.cta}</b></td>
-                <td>${l.desc}</td>
+                <td><b>${l.cta}</b></td><td>${l.desc}</td>
                 <td class="text-right">${l.debe > 0 ? 'S/ ' + l.debe.toFixed(2) : ''}</td>
                 <td class="text-right">${l.haber > 0 ? 'S/ ' + l.haber.toFixed(2) : ''}</td>
             </tr>`;
         });
         document.getElementById('cardPreview').style.display = 'block';
 
-        // --- ALERTA DE ÉXITO ---
+        // Alerta
         const alerta = document.getElementById('alertaIA');
         alerta.className = 'alert alert-success show';
-        alerta.innerHTML = `✅ <b>¡Asiento Registrado Exitosamente!</b><br>La IA ha clasificado la factura en la cuenta <b>${ctaGasto}</b> y los datos ya están reflejados en el Libro Diario, Dashboard y Estados Financieros.`;
+        alerta.innerHTML = `✅ <b>¡Asiento Registrado!</b><br>La IA asignó la cuenta <b>${ctaGasto}</b>.<br><i>Razón: ${motivo}</i>`;
 
-        // Restaurar botón
         btn.textContent = '🪄 Clasificar y Registrar Automáticamente';
         btn.disabled = false;
-
-        // Refrescar datos
         actualizarTodo();
 
-    }, 1200); // 1.2 segundos de "pensado" de la IA
+    }, 1000);
 }
 
 // =====================================================================
-// 5. ACTUALIZACIÓN DE VISTAS (Dashboard, Libro, ESF, ER)
+// 6. CHAT CON LA IA (Consultas en Lenguaje Natural)
+// =====================================================================
+function enviarPregunta() {
+    const input = document.getElementById('chatInput');
+    const texto = input.value.trim();
+    if (texto === '') return;
+
+    agregarMensaje(texto, 'user');
+    input.value = '';
+
+    // Simular que la IA "piensa"
+    setTimeout(() => {
+        const respuesta = generarRespuestaIA(texto.toLowerCase());
+        agregarMensaje(respuesta, 'ia');
+    }, 800);
+}
+
+function agregarMensaje(texto, tipo) {
+    const contenedor = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = `message ${tipo}`;
+    div.innerHTML = texto;
+    contenedor.appendChild(div);
+    contenedor.scrollTop = contenedor.scrollHeight;
+}
+
+function generarRespuestaIA(pregunta) {
+    const db = getDB();
+    if (db.length === 0) return "Aún no tengo datos registrados. Sube un XML en la sección 'Movimiento IA' para empezar a analizar.";
+
+    let totalGastos = 0;
+    let totalIGV = 0;
+    let ultimoAsiento = db[db.length - 1];
+
+    db.forEach(a => {
+        if (a.cuenta.startsWith('60') || a.cuenta.startsWith('63')) totalGastos += a.debe;
+        if (a.cuenta === '40111') totalIGV += a.debe;
+    });
+
+    if (pregunta.includes('gasto') || pregunta.includes('compras')) {
+        return `📊 He revisado tu base de datos. El total acumulado en gastos y compras es de <b>S/ ${totalGastos.toFixed(2)}</b>.`;
+    }
+    if (pregunta.includes('igv') || pregunta.includes('impuesto')) {
+        return `💰 Tu IGV acumulado (Crédito Fiscal) es de <b>S/ ${totalIGV.toFixed(2)}</b>. Este monto podrías usarlo a tu favor en la declaración mensual.`;
+    }
+    if (pregunta.includes('último') || pregunta.includes('ultimo')) {
+        return `📝 El último movimiento registrado fue el <b>${ultimoAsiento.fecha}</b> por un monto en la cuenta <b>${ultimoAsiento.cuenta}</b> de S/ ${ultimoAsiento.debe > 0 ? ultimoAsiento.debe.toFixed(2) : ultimoAsiento.haber.toFixed(2)}.`;
+    }
+    if (pregunta.includes('cuenta') && pregunta.includes('6011')) {
+        return "La cuenta 6011 corresponde a 'Mercaderías' (Compras de bienes para reventa).";
+    }
+    
+    return "Interesante pregunta. Basado en mis registros actuales, tienes " + db.length + " asientos contables. Puedo decirte cuánto gastaste, tu IGV acumulado o cuál fue tu último movimiento. ¿Qué te gustaría saber?";
+}
+
+// =====================================================================
+// 7. CARGA DE VISTAS (Dashboard, Libro, ESF, ER)
 // =====================================================================
 function actualizarTodo() {
     cargarDashboard();
@@ -462,27 +614,21 @@ function actualizarTodo() {
 function cargarDashboard() {
     const db = getDB();
     let ingresos = 0, gastos = 0, igv = 0;
-
-    // Calculamos totales basados en las cuentas
     db.forEach(a => {
-        if (a.cuenta.startsWith('60') || a.cuenta.startsWith('63')) gastos += a.debe; // Gastos/Compras
-        if (a.cuenta.startsWith('70')) ingresos += a.haber; // Ventas (si hubiera)
-        if (a.cuenta === '40111') igv += a.debe; // IGV
+        if (a.cuenta.startsWith('60') || a.cuenta.startsWith('63')) gastos += a.debe;
+        if (a.cuenta.startsWith('70')) ingresos += a.haber;
+        if (a.cuenta === '40111') igv += a.debe;
     });
-
     document.getElementById('kpiIngresos').textContent = 'S/ ' + ingresos.toFixed(2);
     document.getElementById('kpiGastos').textContent = 'S/ ' + gastos.toFixed(2);
     document.getElementById('kpiIGV').textContent = 'S/ ' + igv.toFixed(2);
 
-    // Últimos movimientos
     const tbody = document.querySelector('#tablaUltimos tbody');
     tbody.innerHTML = '';
-    const ultimos = db.slice(-6).reverse(); // Mostrar los últimos 6
+    const ultimos = db.slice(-6).reverse();
     ultimos.forEach(a => {
         tbody.innerHTML += `<tr>
-            <td>${a.fecha}</td>
-            <td>${a.glosa}</td>
-            <td><b>${a.cuenta}</b></td>
+            <td>${a.fecha}</td><td>${a.glosa}</td><td><b>${a.cuenta}</b></td>
             <td class="text-right">${a.debe > 0 ? 'S/ '+a.debe.toFixed(2) : ''}</td>
             <td class="text-right">${a.haber > 0 ? 'S/ '+a.haber.toFixed(2) : ''}</td>
         </tr>`;
@@ -493,18 +639,13 @@ function cargarLibro() {
     const db = getDB();
     const tbody = document.querySelector('#tablaLibro tbody');
     tbody.innerHTML = '';
-    
     if(db.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#666;">No hay asientos registrados. Sube un XML en Movimiento.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:#666;">No hay asientos registrados.</td></tr>';
         return;
     }
-
     db.forEach(a => {
         tbody.innerHTML += `<tr>
-            <td>${a.fecha}</td>
-            <td>${a.glosa}</td>
-            <td>${a.factura}</td>
-            <td><b>${a.cuenta}</b></td>
+            <td>${a.fecha}</td><td>${a.glosa}</td><td>${a.factura}</td><td><b>${a.cuenta}</b></td>
             <td class="text-right">${a.debe > 0 ? a.debe.toFixed(2) : ''}</td>
             <td class="text-right">${a.haber > 0 ? a.haber.toFixed(2) : ''}</td>
         </tr>`;
@@ -519,18 +660,13 @@ function cargarESF() {
         saldos[a.cuenta].debe += a.debe;
         saldos[a.cuenta].haber += a.haber;
     });
-
     const tbody = document.querySelector('#tablaESF tbody');
     tbody.innerHTML = '';
-    
     for(const cta in saldos) {
-        // Solo mostramos cuentas de Balance (Activo, Pasivo, Patrimonio)
-        // En PCGE, las clases 1, 2, 3, 4, 5 son balance. 6 y 7 son resultados.
         if (['1','2','3','4','5'].includes(cta.charAt(0))) {
             let saldoDeudor = saldos[cta].debe - saldos[cta].haber;
             let activo = saldoDeudor > 0 ? saldoDeudor : 0;
             let pasivo = saldoDeudor < 0 ? Math.abs(saldoDeudor) : 0;
-            
             tbody.innerHTML += `<tr>
                 <td><b>${cta}</b></td>
                 <td class="text-right">${activo > 0 ? 'S/ '+activo.toFixed(2) : ''}</td>
@@ -548,18 +684,12 @@ function cargarER() {
         saldos[a.cuenta].debe += a.debe;
         saldos[a.cuenta].haber += a.haber;
     });
-
     const tbody = document.querySelector('#tablaER tbody');
     tbody.innerHTML = '';
-    
     for(const cta in saldos) {
-        // Solo mostramos cuentas de Resultados (Clases 6 y 7)
         if (['6','7'].includes(cta.charAt(0))) {
             let saldo = saldos[cta].debe - saldos[cta].haber;
-            tbody.innerHTML += `<tr>
-                <td><b>${cta}</b></td>
-                <td class="text-right">S/ ${saldo.toFixed(2)}</td>
-            </tr>`;
+            tbody.innerHTML += `<tr><td><b>${cta}</b></td><td class="text-right">S/ ${saldo.toFixed(2)}</td></tr>`;
         }
     }
 }
