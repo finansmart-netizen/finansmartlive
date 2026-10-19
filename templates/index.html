@@ -218,7 +218,9 @@ table tr:hover td { background: #f9f9f9; }
 </style>
 </head>
 <body>
+
 <div class="sync-status" id="syncStatus"></div>
+
 <!-- LOGIN -->
 <div class="auth-screen" id="authScreen">
     <div class="auth-box">
@@ -633,7 +635,7 @@ table tr:hover td { background: #f9f9f9; }
                     </div>
                 </section>
 
-                <!-- DATOS (CON CONTEXTO IA) -->
+                <!-- DATOS -->
                 <section class="module" id="mod-datos">
                     <div class="excel-sheet">
                         <div class="sheet-title">
@@ -840,12 +842,12 @@ table tr:hover td { background: #f9f9f9; }
         </div>
     </div>
 </div>
+
 <script>
-// ==========================================
-// CONFIGURACIÓN GLOBAL
-// ==========================================
+const API_URL = '/api/datos';
 const SESSION_KEY = 'finansmart_session_v26';
 const DATA_PREFIX = 'finansmart_data_';
+const CACHE_KEY = 'finansmart_cache_v26';
 const CONTEXT_KEY = 'finansmart_context_';
 
 let usuarioActual = null;
@@ -856,6 +858,13 @@ let usuariosCache = {};
 let plantillasCache = {};
 
 function log(...args) { console.log('[FinanSmart]', ...args); }
+
+function setDiag(msg, isError) {
+    const el = document.getElementById('diagMsg');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? '#a80000' : '#217346';
+}
 
 function mostrarSync(msg, tipo) {
     const el = document.getElementById('syncStatus');
@@ -925,7 +934,6 @@ function leerArchivoXML(event) {
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlText, "text/xml");
             
-            // Función auxiliar para buscar etiquetas ignorando los prefijos (ej: cac:, cbc:)
             const getTag = (tagName) => {
                 const elements = xmlDoc.getElementsByTagName('*');
                 for (let i = 0; i < elements.length; i++) {
@@ -936,29 +944,24 @@ function leerArchivoXML(event) {
                 return '';
             };
 
-            // Extraer datos básicos (SUNAT)
             const numero = getTag('ID') || 'SIN-NUMERO';
             const fecha = getTag('IssueDate') || '';
             const total = parseFloat(getTag('PayableAmount')) || 0;
             let proveedor = getTag('RegistrationName') || 'PROVEEDOR DESCONOCIDO';
             let descripcion = getTag('Description') || 'SIN DESCRIPCIÓN';
 
-            // Si no encuentra descripción, usamos el nombre del proveedor
             if (descripcion === 'SIN DESCRIPCIÓN') descripcion = proveedor;
 
-            // Llenar el formulario
             document.getElementById('txtFactura').value = numero;
             document.getElementById('txtFechaOperacion').value = fecha;
             document.getElementById('txtTotal').value = total.toFixed(2);
             document.getElementById('txtGlosa').value = `${proveedor} - ${descripcion}`.toUpperCase();
             
-            // Calcular Base e IGV automáticamente
             recalcularDesde('total');
             
             statusEl.textContent = `✅ Leído: ${numero} - S/ ${total.toFixed(2)}`;
             statusEl.style.color = '#107c10';
 
-            // Consultar a la IA
             consultarIAPorTexto(descripcion);
 
         } catch (err) {
@@ -974,7 +977,6 @@ function leerArchivoXML(event) {
 async function consultarIAPorTexto(descripcion) {
     mostrarSync('IA analizando...', 'syncing');
     
-    // Tomamos el contexto que guardó el usuario
     const giro = usuarioActual.giro || 'general';
     const contexto = usuarioActual.contextoIA || '';
 
@@ -994,7 +996,6 @@ async function consultarIAPorTexto(descripcion) {
         if (datos.cuenta) {
             mostrarSync(`Cta detectada: ${datos.cuenta}`, 'success');
             
-            // Seleccionar plantilla de COMPRA automáticamente
             const cbo = document.getElementById('cboTipo');
             for (let i = 0; i < cbo.options.length; i++) {
                 if (cbo.options[i].text.includes('COMPRA')) {
@@ -1003,7 +1004,6 @@ async function consultarIAPorTexto(descripcion) {
                 }
             }
             
-            // Generar la tabla de previsualización del asiento con la cuenta que dio la IA
             const base = vBase;
             const igv = vIGV;
             const total = vTotal;
@@ -1011,7 +1011,6 @@ async function consultarIAPorTexto(descripcion) {
             const tbody = document.querySelector('#tablaPreview tbody');
             tbody.innerHTML = '';
             
-            // Fila 1: La cuenta que eligió la IA (Gasto/Compra)
             tbody.innerHTML += `
                 <tr>
                     <td style="font-weight:700; color:#217346;">${datos.cuenta}</td>
@@ -1020,7 +1019,6 @@ async function consultarIAPorTexto(descripcion) {
                     <td class="num"></td>
                 </tr>
             `;
-            // Fila 2: IGV
             tbody.innerHTML += `
                 <tr>
                     <td style="font-weight:700; color:#217346;">40111</td>
@@ -1029,7 +1027,6 @@ async function consultarIAPorTexto(descripcion) {
                     <td class="num"></td>
                 </tr>
             `;
-            // Fila 3: Cuentas por pagar
             tbody.innerHTML += `
                 <tr>
                     <td style="font-weight:700; color:#217346;">4212</td>
@@ -1039,13 +1036,12 @@ async function consultarIAPorTexto(descripcion) {
                 </tr>
             `;
 
-            // Mostrar la tabla
             const box = document.getElementById('previewBox');
             box.classList.add('visible');
             box.style.display = 'block';
             document.getElementById('btnTogglePreview').textContent = '▼ Ocultar vista previa del asiento';
             
-            alert(`🤖 La IA analizó la factura y la clasificó en la cuenta:\n\n👉 ${datos.cuenta}\n\nRevisa la vista previa y haz clic en "Registrar operación" para guardar el asiento.`);
+            alert(`🤖 La IA clasificó la factura en la cuenta:\n\n👉 ${datos.cuenta}\n\nRevisa la vista previa y haz clic en "Registrar operación".`);
             
         } else {
             mostrarSync('No se pudo clasificar', 'error');
@@ -1162,74 +1158,6 @@ function calcularYPrevisualizar() {
     });
 }
 
-function limpiarFormulario() {
-    document.getElementById('txtBase').value = "";
-    document.getElementById('txtIGV').value = "";
-    document.getElementById('txtTotal').value = "";
-    document.getElementById('txtFactura').value = "";
-    document.getElementById('txtGlosa').value = "";
-    document.querySelector('#tablaPreview tbody').innerHTML = "";
-    vBase = vIGV = vTotal = 0;
-    document.getElementById('cboTipo').selectedIndex = 0;
-    inicializarFechaOperacion();
-    document.getElementById('xmlStatus').textContent = 'Esperando archivo...';
-    document.getElementById('xmlStatus').style.color = '#666';
-    const preview = document.getElementById('previewBox');
-    preview.classList.remove('visible');
-    preview.style.display = 'none';
-}
-</script>
-// ==========================================
-// GUARDAR ASIENTOS Y DATOS
-// ==========================================
-function obtenerAsientosDelDOM() {
-    const asientos = [];
-    const filas = document.querySelectorAll('#cuerpoLibro tr');
-    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
-    
-    filas.forEach(fila => {
-        const celdas = fila.querySelectorAll('td');
-        const asiento = {
-            nro: celdas[0].textContent,
-            fecha: celdas[1].textContent,
-            glosa: celdas[2].textContent,
-            factura: celdas[3].textContent,
-            cuentas: {} 
-        };
-        for (let i = 4; i < celdas.length - 1; i++) {
-            const codigo = cuentasLibro[i - 4].codigo;
-            const td = celdas[i];
-            const dataDebe = parseFloat(td.getAttribute('data-debe')) || 0;
-            const dataHaber = parseFloat(td.getAttribute('data-haber')) || 0;
-            if (dataDebe > 0 || dataHaber > 0) {
-                asiento.cuentas[codigo] = { debe: dataDebe, haber: dataHaber };
-            }
-        }
-        asientos.push(asiento);
-    });
-    return asientos;
-}
-
-function guardarEstado() {
-    if (!usuarioActual) return;
-    localStorage.setItem(DATA_PREFIX + usuarioActual.username, JSON.stringify({
-        version: 3, timestamp: new Date().toISOString(),
-        correlativo: correlativo, asientos: obtenerAsientosDelDOM()
-    }));
-}
-
-function cargarEstado() {
-    if (!usuarioActual) return false;
-    try {
-        const raw = localStorage.getItem(DATA_PREFIX + usuarioActual.username);
-        if (!raw) return false;
-        const estado = JSON.parse(raw);
-        if (estado.correlativo) correlativo = estado.correlativo;
-        if (estado.asientos && estado.asientos.length > 0) restaurarAsientos(estado.asientos);
-        return true;
-    } catch (e) { return false; }
-}
-
 function insertarAsiento() {
     const tipo = document.getElementById('cboTipo').value;
     const factura = document.getElementById('txtFactura').value;
@@ -1245,7 +1173,6 @@ function insertarAsiento() {
     const fechaFormateada = formatearFecha(fechaOperacion);
     const nroAsiento = correlativo++;
 
-    // Acumular por cuenta respetando Debe y Haber
     const acumulado = {};
     plantillasCache[tipo].lineas.forEach(linea => {
         let monto = 0;
@@ -1261,7 +1188,6 @@ function insertarAsiento() {
     const tr = document.createElement('tr');
     tr.dataset.nro = nroAsiento;
     tr.innerHTML = `<td>${nroAsiento}</td><td>${fechaFormateada}</td><td>${glosaFinal}</td><td>${factura}</td>`;
-    
     const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
     cuentasLibro.forEach(cuentaCatalogo => {
         const td = document.createElement('td');
@@ -1292,36 +1218,23 @@ function insertarAsiento() {
     calcularDashboard();
 }
 
-function restaurarAsientos(asientos) {
-    const tbodyLibro = document.getElementById('cuerpoLibro');
-    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
-    
-    asientos.forEach(asiento => {
-        const tr = document.createElement('tr');
-        tr.dataset.nro = asiento.nro;
-        tr.innerHTML = `<td>${asiento.nro}</td><td>${asiento.fecha}</td><td>${asiento.glosa}</td><td>${asiento.factura}</td>`;
-        
-        cuentasLibro.forEach(cuentaCatalogo => {
-            const td = document.createElement('td');
-            td.className = 'num';
-            const datos = asiento.cuentas[cuentaCatalogo.codigo];
-            if (datos) {
-                let debe = datos.debe || 0;
-                let haber = datos.haber || 0;
-                td.setAttribute('data-debe', debe.toFixed(2));
-                td.setAttribute('data-haber', haber.toFixed(2));
-                if (debe > 0 && haber > 0) td.textContent = debe.toFixed(2) + "/" + haber.toFixed(2);
-                else if (debe > 0) td.textContent = debe.toFixed(2);
-                else if (haber > 0) td.textContent = "-" + haber.toFixed(2);
-            }
-            tr.appendChild(td);
-        });
-        const tdAccion = document.createElement('td');
-        tdAccion.style.textAlign = 'center';
-        tdAccion.innerHTML = `<button class="btn-delete-row" onclick="eliminarAsiento(this)">✕</button>`;
-        tr.appendChild(tdAccion);
-        tbodyLibro.appendChild(tr);
-    });
+function limpiarFormulario() {
+    document.getElementById('txtBase').value = "";
+    document.getElementById('txtIGV').value = "";
+    document.getElementById('txtTotal').value = "";
+    document.getElementById('txtFactura').value = "";
+    document.getElementById('txtGlosa').value = "";
+    document.querySelector('#tablaPreview tbody').innerHTML = "";
+    vBase = vIGV = vTotal = 0;
+    document.getElementById('cboTipo').selectedIndex = 0;
+    inicializarFechaOperacion();
+    const inputXML = document.getElementById('inputXML');
+    if (inputXML) inputXML.value = '';
+    const statusEl = document.getElementById('xmlStatus');
+    if (statusEl) { statusEl.textContent = 'Esperando archivo...'; statusEl.style.color = '#666'; }
+    const preview = document.getElementById('previewBox');
+    preview.classList.remove('visible');
+    preview.style.display = 'none';
 }
 
 function eliminarAsiento(btn) {
@@ -1331,34 +1244,25 @@ function eliminarAsiento(btn) {
     calcularDashboard();
 }
 
-// ==========================================
-// CÁLCULOS DE REPORTES (DASHBOARD, BALANCE, ESF, ER)
-// ==========================================
-function obtenerSaldos() {
-    const saldos = {};
-    catalogoCuentas.forEach(c => {
-        saldos[c.codigo] = { debe: 0, haber: 0, nombre: c.nombre, grupo: c.grupo, categoria317: c.categoria317, excluir317: c.excluir317 };
-    });
-    const filas = document.querySelectorAll('#cuerpoLibro tr');
-    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
-    
-    filas.forEach(fila => {
-        const celdas = fila.querySelectorAll('td');
-        for (let i = 4; i < celdas.length - 1; i++) {
-            const codigoCuenta = cuentasLibro[i - 4].codigo;
-            const td = celdas[i];
-            const dataDebe = parseFloat(td.getAttribute('data-debe'));
-            const dataHaber = parseFloat(td.getAttribute('data-haber'));
-            if (!isNaN(dataDebe) || !isNaN(dataHaber)) {
-                saldos[codigoCuenta].debe += dataDebe || 0;
-                saldos[codigoCuenta].haber += dataHaber || 0;
-            }
-        }
-    });
-    return saldos;
+async function eliminarPlantillaSeleccionada() {
+    if (usuarioActual.rol !== 'admin') { alert('Solo el administrador.'); return; }
+    const cbo = document.getElementById('cboTipo');
+    const key = cbo.value;
+    if (!key || !plantillasCache[key]) { alert('Selecciona una plantilla.'); return; }
+    if (!confirm(`¿Eliminar la plantilla "${plantillasCache[key].nombre}"?`)) return;
+    delete plantillasCache[key];
+    mostrarSync('Guardando en servidor...', 'syncing');
+    const ok = await guardarTodoEnServidor();
+    if (ok) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ usuarios: usuariosCache, plantillas: plantillasCache }));
+        cbo.value = '';
+        cargarComboBoxPlantillas();
+        limpiarFormulario();
+        mostrarSync('Plantilla eliminada', 'success');
+    } else {
+        mostrarSync('Falló', 'error');
+    }
 }
-
-function formatoNumero(num) { return num.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 function calcularDashboard() {
     const saldos = obtenerSaldos();
@@ -1409,7 +1313,6 @@ function calcularDashboard() {
         document.getElementById('kpiPorPagarPie').style.color = '#a80000';
     }
 
-    // Resultados del periodo
     let ventas = 0, costoVentas = 0, gastosOperativos = 0;
     catalogoCuentas.forEach(c => {
         const s = saldos[c.codigo];
@@ -1425,7 +1328,6 @@ function calcularDashboard() {
     document.getElementById('resGastos').textContent = formatoNumero(gastosOperativos);
     document.getElementById('resGanancia').textContent = formatoNumero(ventas - costoVentas - gastosOperativos);
 
-    // Gráfico de Dona (simplificado)
     let catPersonal = 0, catCompras = 0, catServicios = 0, catOtros = 0;
     catalogoCuentas.forEach(c => {
         const s = saldos[c.codigo];
@@ -1465,6 +1367,137 @@ function calcularDashboard() {
     }
 }
 
+function formatoNumero(num) { return num.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function renderizarTablaConfig() {
+    const tbody = document.querySelector('#tablaConfigLineas tbody');
+    tbody.innerHTML = "";
+    lineasConfigTemp.forEach((linea, index) => {
+        const tr = document.createElement('tr');
+        let opcionesCuentas = '<option value="">-- Seleccione --</option>';
+        catalogoCuentas.filter(c => c.codigo.length <= 5).forEach(c => {
+            const selected = (c.codigo === linea.codigo) ? 'selected' : '';
+            opcionesCuentas += `<option value="${c.codigo}" ${selected}>${c.codigo} - ${c.nombre}</option>`;
+        });
+        tr.innerHTML = `
+            <td><select onchange="actualizarLineaConfig(${index}, 'codigo', this.value)">${opcionesCuentas}</select></td>
+            <td><input type="text" value="${linea.desc}" onchange="actualizarLineaConfig(${index}, 'desc', this.value)"></td>
+            <td>
+                <select onchange="actualizarLineaConfig(${index}, 'tipo', this.value)">
+                    <option value="debe" ${linea.tipo === 'debe' ? 'selected' : ''}>DEBE</option>
+                    <option value="haber" ${linea.tipo === 'haber' ? 'selected' : ''}>HABER</option>
+                </select>
+            </td>
+            <td style="text-align:center; font-size:10px; color:#666;">${obtenerNaturaleza(linea.codigo)}</td>
+            <td>
+                <select onchange="actualizarLineaConfig(${index}, 'valor', this.value)">
+                    <option value="base" ${linea.valor === 'base' ? 'selected' : ''}>BASE</option>
+                    <option value="igv" ${linea.valor === 'igv' ? 'selected' : ''}>IGV</option>
+                    <option value="total" ${linea.valor === 'total' ? 'selected' : ''}>TOTAL</option>
+                </select>
+            </td>
+            <td style="text-align:center;">
+                <button class="btn-delete-row" onclick="eliminarLineaConfig(${index})">✕</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function obtenerNaturaleza(codigo) {
+    const cuenta = catalogoCuentas.find(c => c.codigo === codigo);
+    return cuenta ? cuenta.naturaleza : '-';
+}
+
+function actualizarLineaConfig(index, campo, valor) {
+    lineasConfigTemp[index][campo] = valor;
+    if (campo === 'codigo') {
+        const cuenta = catalogoCuentas.find(c => c.codigo === valor);
+        if (cuenta && lineasConfigTemp[index].desc === "") lineasConfigTemp[index].desc = cuenta.nombre;
+        renderizarTablaConfig();
+    }
+}
+
+function agregarLineaConfig() { lineasConfigTemp.push({ codigo: "", desc: "", tipo: "debe", valor: "base" }); renderizarTablaConfig(); }
+function eliminarLineaConfig(index) { if (lineasConfigTemp.length <= 2) { alert("Mínimo 2 líneas."); return; } lineasConfigTemp.splice(index, 1); renderizarTablaConfig(); }
+
+async function guardarPlantilla() {
+    if (usuarioActual.rol !== 'admin') { alert('Solo el administrador.'); return; }
+    const nombre = document.getElementById('txtNombrePlantilla').value.trim();
+    if (nombre === "") { alert("Ingrese un nombre."); return; }
+    if (lineasConfigTemp.length < 2) { alert("Mínimo 2 líneas."); return; }
+    for (let i = 0; i < lineasConfigTemp.length; i++) {
+        const l = lineasConfigTemp[i];
+        if (l.codigo === "" || l.desc === "") { alert(`Línea ${i + 1} incompleta.`); return; }
+    }
+    const key = "custom_" + Date.now();
+    const nuevaPlantilla = { nombre: nombre.toUpperCase(), custom: true, lineas: JSON.parse(JSON.stringify(lineasConfigTemp)) };
+    plantillasCache[key] = nuevaPlantilla;
+    mostrarSync('Subiendo al servidor...', 'syncing');
+    const ok = await guardarTodoEnServidor();
+    if (ok) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ usuarios: usuariosCache, plantillas: plantillasCache }));
+        cargarComboBoxPlantillas();
+        mostrarSync('Plantilla guardada', 'success');
+        alert(`Plantilla "${nombre}" guardada.`);
+        limpiarConfig();
+    } else {
+        delete plantillasCache[key];
+        mostrarSync('Falló', 'error');
+    }
+}
+
+function limpiarConfig() {
+    document.getElementById('txtNombrePlantilla').value = "";
+    lineasConfigTemp = [
+        { codigo: "", desc: "", tipo: "debe", valor: "base" },
+        { codigo: "", desc: "", tipo: "haber", valor: "total" }
+    ];
+    renderizarTablaConfig();
+}
+
+function obtenerSaldos() {
+    const saldos = {};
+    catalogoCuentas.forEach(c => {
+        saldos[c.codigo] = { debe: 0, haber: 0, nombre: c.nombre, grupo: c.grupo, categoria317: c.categoria317, excluir317: c.excluir317 };
+    });
+    const filas = document.querySelectorAll('#cuerpoLibro tr');
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        for (let i = 4; i < celdas.length - 1; i++) {
+            const codigoCuenta = cuentasLibro[i - 4].codigo;
+            const td = celdas[i];
+            const dataDebe = parseFloat(td.getAttribute('data-debe'));
+            const dataHaber = parseFloat(td.getAttribute('data-haber'));
+            if (!isNaN(dataDebe) || !isNaN(dataHaber)) {
+                saldos[codigoCuenta].debe += dataDebe || 0;
+                saldos[codigoCuenta].haber += dataHaber || 0;
+            }
+        }
+    });
+    return saldos;
+}
+
+function actualizarInfoDatos() {
+    if (!usuarioActual) return;
+    document.getElementById('infoUsuario').textContent = usuarioActual.username;
+    document.getElementById('infoCreado').textContent = new Date(usuarioActual.creado).toLocaleDateString('es-PE');
+    document.getElementById('infoAsientos').textContent = document.querySelectorAll('#cuerpoLibro tr').length;
+    let count = 0;
+    for (const key in plantillasCache) count++;
+    document.getElementById('infoPlantillas').textContent = count;
+    document.getElementById('infoCorrelativo').textContent = correlativo;
+    try {
+        const raw = localStorage.getItem(getDataKey());
+        const bytes = raw ? new Blob([raw]).size : 0;
+        let espacio = bytes + ' B';
+        if (bytes > 1024 * 1024) espacio = (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        else if (bytes > 1024) espacio = (bytes / 1024).toFixed(2) + ' KB';
+        document.getElementById('infoEspacio').textContent = espacio;
+    } catch (e) { document.getElementById('infoEspacio').textContent = '--'; }
+}
+
 function calcularBalance317() {
     const tbody = document.getElementById('cuerpoBalance317');
     tbody.innerHTML = "";
@@ -1476,23 +1509,20 @@ function calcularBalance317() {
 
     cuentasLibro.forEach(cuenta => {
         const s = saldos[cuenta.codigo];
-        if (!s || (s.debe === 0 && s.haber === 0)) return;
-        
+        if (!s) return;
+        if (s.debe === 0 && s.haber === 0) return;
         const debe = s.debe, haber = s.haber;
         const elem = cuenta.codigo.charAt(0);
         let bgDeudor = 0, bgAcreedor = 0, pNat = 0, gNat = 0;
-        
         if (s.categoria317 === "BALANCE_GENERAL") { bgDeudor = debe; bgAcreedor = haber; }
         else if (s.categoria317 === "RESULTADOS_NATURALEZA") {
             if (elem === "7") { gNat = haber; pNat = debe; }
             else { pNat = debe; gNat = haber; }
         }
-        
         totalDeudor += debe; totalAcreedor += haber;
         totalDebe += debe; totalHaber += haber;
         totalBGDeudor += bgDeudor; totalBGAcreedor += bgAcreedor;
         totalPerdidasNat += pNat; totalGananciasNat += gNat;
-        
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="font-family:monospace; font-weight:700;">${cuenta.codigo}</td><td>${cuenta.nombre}</td>
@@ -1509,6 +1539,9 @@ function calcularBalance317() {
         tbody.appendChild(tr);
     });
 
+    const difBG = totalBGDeudor - totalBGAcreedor;
+    const difRN = totalPerdidasNat - totalGananciasNat;
+
     const trTotal = document.createElement('tr');
     trTotal.innerHTML = `
         <td colspan="2" style="text-align:right; background:#fff4ce; font-weight:700;">TOTALES</td>
@@ -1524,6 +1557,22 @@ function calcularBalance317() {
         <td class="num total" style="text-align:right;">${totalGananciasNat.toFixed(2)}</td>
     `;
     tbody.appendChild(trTotal);
+
+    const trDif = document.createElement('tr');
+    trDif.innerHTML = `
+        <td colspan="2" style="text-align:right; background:#e6f4ea; font-weight:700; color:#185c37;">DIFERENCIA (Total Deudor − Total Acreedor | Total Pérdidas − Total Ganancias)</td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td class="num total" style="text-align:center; background:#e6f4ea; font-weight:700; ${difBG >= 0 ? 'color:#107c10;' : 'color:#a80000;'}">${difBG >= 0 ? difBG.toFixed(2) : Math.abs(difBG).toFixed(2)}${difBG >= 0 ? ' (D)' : ' (A)'}</td>
+        <td style="background:#e6f4ea;"></td>
+        <td class="num total" style="text-align:center; background:#e6f4ea; font-weight:700; ${difRN >= 0 ? 'color:#a80000;' : 'color:#107c10;'}">${difRN >= 0 ? difRN.toFixed(2) : Math.abs(difRN).toFixed(2)}${difRN >= 0 ? ' (P)' : ' (G)'}</td>
+        <td style="background:#e6f4ea;"></td>
+    `;
+    tbody.appendChild(trDif);
 }
 
 function calcularESF() {
@@ -1532,7 +1581,6 @@ function calcularESF() {
     const saldos = obtenerSaldos();
     const activoCorriente = [], activoNoCorriente = [], pasivoCorriente = [], pasivoNoCorriente = [], patrimonio = [];
     let tAC = 0, tANC = 0, tPC = 0, tPNC = 0, tPat = 0, tIng = 0, tGas = 0;
-    
     catalogoCuentas.forEach(cuenta => {
         const s = saldos[cuenta.codigo];
         if (!s || cuenta.excluir317) return;
@@ -1540,7 +1588,6 @@ function calcularESF() {
         if (debe === 0 && haber === 0) return;
         const elem = cuenta.codigo.charAt(0);
         const saldoNeto = debe - haber;
-        
         if (["1", "2", "3"].includes(elem)) {
             if (elem === "3") { activoNoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: saldoNeto }); tANC += saldoNeto; }
             else { activoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: saldoNeto }); tAC += saldoNeto; }
@@ -1554,16 +1601,50 @@ function calcularESF() {
         else if (elem === "6") tGas += debe - haber;
     });
     tPat += (tIng - tGas);
-    
+    const trH = document.createElement('tr');
+    trH.innerHTML = `<td style="background:#217346; color:white; font-weight:700;">ACTIVO</td><td style="background:#217346; color:white;"></td><td style="background:#217346; color:white; font-weight:700;">PASIVO Y PATRIMONIO</td><td style="background:#217346; color:white;"></td>`;
+    tbody.appendChild(trH);
+    const trAC = document.createElement('tr');
+    trAC.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">ACTIVO CORRIENTE</td><td colspan="2" style="background:#e6f4ea; font-weight:700;">PASIVO CORRIENTE</td>`;
+    tbody.appendChild(trAC);
     const maxC = Math.max(activoCorriente.length, pasivoCorriente.length);
     for (let i = 0; i < maxC; i++) {
-        const a = activoCorriente[i], p = pasivoCorriente[i];
         const tr = document.createElement('tr');
+        const a = activoCorriente[i], p = pasivoCorriente[i];
         tr.innerHTML = `<td style="padding-left:20px;">${a ? a.codigo + ' ' + a.nombre : ''}</td><td class="num">${a ? a.monto.toFixed(2) : ''}</td><td style="padding-left:20px;">${p ? p.codigo + ' ' + p.nombre : ''}</td><td class="num">${p ? p.monto.toFixed(2) : ''}</td>`;
         tbody.appendChild(tr);
     }
-    
+    const trTAC = document.createElement('tr');
+    trTAC.innerHTML = `<td class="total">TOTAL ACTIVO CORRIENTE</td><td class="num total">${tAC.toFixed(2)}</td><td class="total">TOTAL PASIVO CORRIENTE</td><td class="num total">${tPC.toFixed(2)}</td>`;
+    tbody.appendChild(trTAC);
+    const trANC = document.createElement('tr');
+    trANC.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">ACTIVO NO CORRIENTE</td><td colspan="2" style="background:#e6f4ea; font-weight:700;">PASIVO NO CORRIENTE</td>`;
+    tbody.appendChild(trANC);
+    const maxNC = Math.max(activoNoCorriente.length, pasivoNoCorriente.length);
+    for (let i = 0; i < maxNC; i++) {
+        const tr = document.createElement('tr');
+        const a = activoNoCorriente[i], p = pasivoNoCorriente[i];
+        tr.innerHTML = `<td style="padding-left:20px;">${a ? a.codigo + ' ' + a.nombre : ''}</td><td class="num">${a ? a.monto.toFixed(2) : ''}</td><td style="padding-left:20px;">${p ? p.codigo + ' ' + p.nombre : ''}</td><td class="num">${p ? p.monto.toFixed(2) : ''}</td>`;
+        tbody.appendChild(tr);
+    }
+    const trTANC = document.createElement('tr');
+    trTANC.innerHTML = `<td class="total">TOTAL ACTIVO NO CORRIENTE</td><td class="num total">${tANC.toFixed(2)}</td><td class="total">TOTAL PASIVO NO CORRIENTE</td><td class="num total">${tPNC.toFixed(2)}</td>`;
+    tbody.appendChild(trTANC);
     const tA = tAC + tANC, tP = tPC + tPNC;
+    const trTA = document.createElement('tr');
+    trTA.innerHTML = `<td class="total-strong">TOTAL ACTIVO</td><td class="num total-strong">${tA.toFixed(2)}</td><td class="total-strong">TOTAL PASIVO</td><td class="num total-strong">${tP.toFixed(2)}</td>`;
+    tbody.appendChild(trTA);
+    const trP = document.createElement('tr');
+    trP.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">PATRIMONIO</td><td colspan="2" style="background:#e6f4ea;"></td>`;
+    tbody.appendChild(trP);
+    patrimonio.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td></td><td></td><td style="padding-left:20px;">${p.codigo} ${p.nombre}</td><td class="num">${p.monto.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+    });
+    const trTP = document.createElement('tr');
+    trTP.innerHTML = `<td class="total">TOTAL PATRIMONIO</td><td class="num total">${tPat.toFixed(2)}</td><td class="total">TOTAL PATRIMONIO</td><td class="num total">${tPat.toFixed(2)}</td>`;
+    tbody.appendChild(trTP);
     const trTF = document.createElement('tr');
     trTF.innerHTML = `<td class="total-strong">TOTAL ACTIVO</td><td class="num total-strong">${tA.toFixed(2)}</td><td class="total-strong">TOTAL PASIVO Y PATRIMONIO</td><td class="num total-strong">${(tP + tPat).toFixed(2)}</td>`;
     tbody.appendChild(trTF);
@@ -1575,7 +1656,6 @@ function calcularER() {
     const saldos = obtenerSaldos();
     let tIng = 0, tGas = 0;
     const dIng = [], dGas = [];
-    
     catalogoCuentas.forEach(cuenta => {
         const s = saldos[cuenta.codigo];
         if (!s || cuenta.excluir317) return;
@@ -1585,68 +1665,83 @@ function calcularER() {
         if (elem === "7") { const m = haber - debe; if (m !== 0) { dIng.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: m }); tIng += m; } }
         else if (elem === "6") { const m = debe - haber; if (m !== 0) { dGas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: m }); tGas += m; } }
     });
-    
+    const trI = document.createElement('tr');
+    trI.innerHTML = `<td colspan="2" style="background:#217346; color:white; font-weight:700;">INGRESOS</td>`;
+    tbody.appendChild(trI);
     dIng.forEach(i => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td style="padding-left:20px;">${i.codigo} ${i.nombre}</td><td class="num">${i.monto.toFixed(2)}</td>`;
         tbody.appendChild(tr);
     });
+    const trTI = document.createElement('tr');
+    trTI.innerHTML = `<td class="total" style="text-align:right;">TOTAL INGRESOS</td><td class="num total">${tIng.toFixed(2)}</td>`;
+    tbody.appendChild(trTI);
+    const trG = document.createElement('tr');
+    trG.innerHTML = `<td colspan="2" style="background:#c0504d; color:white; font-weight:700;">GASTOS</td>`;
+    tbody.appendChild(trG);
     dGas.forEach(g => {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td style="padding-left:20px;">${g.codigo} ${g.nombre}</td><td class="num">${g.monto.toFixed(2)}</td>`;
         tbody.appendChild(tr);
     });
+    const trTG = document.createElement('tr');
+    trTG.innerHTML = `<td class="total" style="text-align:right;">TOTAL GASTOS</td><td class="num total">${tGas.toFixed(2)}</td>`;
+    tbody.appendChild(trTG);
     const res = tIng - tGas;
+    const esU = res >= 0;
     const trR = document.createElement('tr');
-    trR.innerHTML = `<td class="utilidad">UTILIDAD / PÉRDIDA DEL EJERCICIO</td><td class="num utilidad">${res.toFixed(2)}</td>`;
+    trR.innerHTML = `<td class="${esU ? 'utilidad' : 'total'}">${esU ? 'UTILIDAD' : 'PÉRDIDA'} DEL EJERCICIO</td><td class="num ${esU ? 'utilidad' : 'total'}">${Math.abs(res).toFixed(2)}</td>`;
     tbody.appendChild(trR);
 }
 
-// ==========================================
-// UTILIDADES Y ARRANQUE
-// ==========================================
-function formatearFecha(fechaISO) {
-    if (!fechaISO) return '';
-    const partes = fechaISO.split('-');
-    if (partes.length !== 3) return fechaISO;
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+function renderizarPCGE() {
+    const tbody = document.getElementById('cuerpoPCGE');
+    tbody.innerHTML = "";
+    const filtro = (document.getElementById('txtBuscarPCGE')?.value || "").toLowerCase();
+    const filtroElem = document.getElementById('filtroElementoPCGE')?.value || "";
+    let contador = 0;
+    catalogoCuentas.forEach(cuenta => {
+        if (filtro && !cuenta.codigo.toLowerCase().includes(filtro) && !cuenta.nombre.toLowerCase().includes(filtro)) return;
+        if (filtroElem && cuenta.elemento !== filtroElem) return;
+        contador++;
+        let bg = '';
+        if (cuenta.codigo.length <= 2) bg = 'background:#fff4ce; font-weight:700;';
+        else if (cuenta.codigo.length <= 4) bg = 'background:#e6f4ea;';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-family:monospace; font-weight:700; ${bg}">${cuenta.codigo}</td>
+            <td style="${bg}">${cuenta.nombre}</td>
+            <td style="text-align:center; ${bg}">${cuenta.elemento}</td>
+            <td style="text-align:center; ${bg}">${cuenta.tipo}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    const contEl = document.getElementById('pcgeContador');
+    if (contEl) contEl.textContent = contador;
 }
 
-function inicializarFechaOperacion() {
-    const hoy = new Date();
-    const yyyy = hoy.getFullYear();
-    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-    const dd = String(hoy.getDate()).padStart(2, '0');
-    document.getElementById('txtFechaOperacion').value = `${yyyy}-${mm}-${dd}`;
-}
+function filtrarPCGE() { renderizarPCGE(); }
 
-// El resto de funciones (usuarios, plantillas, config, login) 
-// se mantienen igual que en el código original para no hacerlo más largo.
-// Aquí solo debes asegurarte de tener las funciones básicas de login:
-// iniciarSesion(), cerrarSesion(), abrirApp(), etc.
-
-function irModulo(nombre, event) {
-    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
-    document.getElementById('mod-' + nombre).classList.add('active');
-
-    document.querySelectorAll('.sidebar-item, .ribbon-tab, .sheet-tab').forEach(m => m.classList.remove('active'));
-    // (Aquí iría la lógica para marcar el botón activo, que ya tenías en tu código original)
-
-    if (nombre === 'dashboard') calcularDashboard();
-    if (nombre === 'balance') calcularBalance317();
-    if (nombre === 'esf') calcularESF();
-    if (nombre === 'er') calcularER();
-    if (nombre === 'datos') cargarContextoIA();
-}
-
-window.onload = function() {
-    // Login automático para pruebas (En producción usar el login real)
-    usuarioActual = { username: 'admin', nombre: 'Admin', rol: 'admin' };
-    cargarContextoIA();
-    inicializarFechaOperacion();
-    calcularDashboard();
-    alert("Sistema listo. Sube un XML en Movimiento para probar la IA.");
+window.onload = async function() {
+    log('Iniciando...');
+    await cargarDatosDelServidor();
+    const sessionUser = sessionStorage.getItem(SESSION_KEY);
+    if (sessionUser) {
+        const user = usuariosCache[sessionUser];
+        if (user && user.activo) {
+            usuarioActual = user;
+            abrirApp();
+            return;
+        }
+    }
+    document.getElementById('loginUser').focus();
 };
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !document.getElementById('authScreen').classList.contains('hidden')) {
+        iniciarSesion();
+    }
+});
 </script>
 </body>
 </html>
