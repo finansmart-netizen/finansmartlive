@@ -252,7 +252,6 @@ table tr:hover td { background: #f9f9f9; }
         <button class="btn-reparar" onclick="repararSistema()">Reparar sistema (limpiar servidor)</button>
     </div>
 </div>
-
 <!-- APP -->
 <div class="app hidden" id="appMain">
     <div class="excel-ribbon">
@@ -372,7 +371,7 @@ table tr:hover td { background: #f9f9f9; }
                     </div>
                 </section>
 
-                <!-- MOVIMIENTO / ASIENTOS -->
+                <!-- MOVIMIENTO / ASIENTOS (CON XML) -->
                 <section class="module" id="mod-asientos">
                     <div class="excel-sheet">
                         <div class="sheet-title">
@@ -380,6 +379,12 @@ table tr:hover td { background: #f9f9f9; }
                             <span class="sheet-tabs">Ingresos y Gastos</span>
                         </div>
                         <div class="excel-panel-body">
+                            <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; padding:8px 12px; background:#e6f4ea; border-left:4px solid #217346; border-radius:2px;">
+                                <span style="font-size:11px; font-weight:700; color:#185c37;">📄 Factura electrónica SUNAT:</span>
+                                <button type="button" class="btn" onclick="document.getElementById('inputXML').click()">📂 Importar XML</button>
+                                <input type="file" id="inputXML" accept=".xml" style="display:none;" onchange="procesarXMLFactura(event)">
+                                <span id="xmlStatus" style="font-size:11px; color:#666;">Sin archivo cargado</span>
+                            </div>
                             <div class="excel-form-row" style="grid-template-columns:1fr 3fr;">
                                 <div class="excel-cell-label">Tipo de operación</div>
                                 <div class="excel-cell-input" style="display:flex; gap:6px;">
@@ -540,7 +545,6 @@ table tr:hover td { background: #f9f9f9; }
                         </div>
                     </div>
                 </section>
-
                 <!-- PCGE -->
                 <section class="module" id="mod-pcge">
                     <div class="excel-sheet">
@@ -800,9 +804,8 @@ table tr:hover td { background: #f9f9f9; }
         </div>
     </div>
 </div>
-
 <script>
-const API_URL = 'LOCAL_STORAGE';
+const API_URL = '/api/datos';
 const SESSION_KEY = 'finansmart_session_v26';
 const DATA_PREFIX = 'finansmart_data_';
 const CACHE_KEY = 'finansmart_cache_v26';
@@ -937,6 +940,144 @@ function hashPassword(pass) {
     return 'h_' + Math.abs(hash).toString(36);
 }
 
+/* ============================================================
+   LECTURA DE XML — FACTURAS ELECTRÓNICAS SUNAT
+   ============================================================ */
+function procesarXMLFactura(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('xmlStatus');
+    statusEl.textContent = '⏳ Leyendo ' + file.name + '...';
+    statusEl.style.color = '#0078d4';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const xmlText = e.target.result;
+            const parser = new DOMParser();
+            const xml = parser.parseFromString(xmlText, 'application/xml');
+
+            if (xml.querySelector('parsererror')) {
+                throw new Error('El archivo no es un XML válido');
+            }
+
+            const getTag = (tagName) => {
+                const nodes = xml.getElementsByTagName('*');
+                for (let i = 0; i < nodes.length; i++) {
+                    if (nodes[i].localName === tagName) return nodes[i].textContent.trim();
+                }
+                return '';
+            };
+            const getAllTags = (tagName) => {
+                const result = [];
+                const nodes = xml.getElementsByTagName('*');
+                for (let i = 0; i < nodes.length; i++) {
+                    if (nodes[i].localName === tagName) result.push(nodes[i]);
+                }
+                return result;
+            };
+
+            const invoiceNode = getAllTags('Invoice')[0];
+            let numeroFactura = '';
+            if (invoiceNode) {
+                const idNode = invoiceNode.getElementsByTagName('*');
+                for (let i = 0; i < idNode.length; i++) {
+                    if (idNode[i].localName === 'ID') { numeroFactura = idNode[i].textContent.trim(); break; }
+                }
+            }
+            if (!numeroFactura) numeroFactura = getTag('ID') || 'SIN-NUMERO';
+
+            const fechaEmision = getTag('IssueDate');
+
+            let total = 0;
+            const taxInclusive = getAllTags('TaxInclusiveAmount');
+            if (taxInclusive.length > 0) total = parseFloat(taxInclusive[0].textContent) || 0;
+            if (total === 0) {
+                const payable = getAllTags('PayableAmount');
+                if (payable.length > 0) total = parseFloat(payable[0].textContent) || 0;
+            }
+
+            let igv = 0;
+            const taxSubtotals = getAllTags('TaxSubtotal');
+            taxSubtotals.forEach(st => {
+                let schemeId = '';
+                const children = st.getElementsByTagName('*');
+                for (let i = 0; i < children.length; i++) {
+                    if (children[i].localName === 'ID') schemeId = children[i].textContent.trim();
+                }
+                if (schemeId === '1000' || schemeId === 'IGV') {
+                    const taxAmount = st.getElementsByTagName('*');
+                    for (let i = 0; i < taxAmount.length; i++) {
+                        if (taxAmount[i].localName === 'TaxAmount') {
+                            igv = parseFloat(taxAmount[i].textContent) || 0;
+                            break;
+                        }
+                    }
+                }
+            });
+            if (igv === 0 && total > 0) {
+                const baseCalc = total / 1.18;
+                igv = total - baseCalc;
+            }
+
+            const base = total - igv;
+
+            let emisor = '';
+            const supplier = getAllTags('AccountingSupplierParty')[0];
+            if (supplier) {
+                const regName = supplier.getElementsByTagName('*');
+                for (let i = 0; i < regName.length; i++) {
+                    if (regName[i].localName === 'RegistrationName') { emisor = regName[i].textContent.trim(); break; }
+                }
+            }
+
+            const glosaXML = emisor ? ('FACTURA ' + emisor + ' ' + numeroFactura).toUpperCase() : ('FACTURA ' + numeroFactura).toUpperCase();
+
+            if (fechaEmision) {
+                document.getElementById('txtFechaOperacion').value = fechaEmision;
+            }
+            document.getElementById('txtFactura').value = numeroFactura;
+            document.getElementById('txtBase').value = base.toFixed(2);
+            document.getElementById('txtIGV').value = igv.toFixed(2);
+            document.getElementById('txtTotal').value = total.toFixed(2);
+            document.getElementById('txtGlosa').value = glosaXML;
+
+            vBase = base;
+            vIGV = igv;
+            vTotal = total;
+            calcularYPrevisualizar();
+
+            statusEl.textContent = '✅ ' + numeroFactura + ' · S/ ' + total.toFixed(2);
+            statusEl.style.color = '#107c10';
+            mostrarSync('XML importado correctamente', 'success');
+
+            const cbo = document.getElementById('cboTipo');
+            if (cbo && total > 0) {
+                for (const key in plantillasCache) {
+                    const nombre = plantillasCache[key].nombre.toUpperCase();
+                    if (nombre.includes('COMPRA') && nombre.includes('CONTADO')) {
+                        cbo.value = key;
+                        break;
+                    }
+                }
+                calcularYPrevisualizar();
+            }
+
+        } catch (err) {
+            console.error('Error XML:', err);
+            statusEl.textContent = '❌ ' + err.message;
+            statusEl.style.color = '#a80000';
+            mostrarSync('Error al leer XML', 'error');
+            alert('No se pudo leer el XML:\n' + err.message + '\n\nAsegúrate de que sea una factura electrónica SUNAT (UBL 2.1).');
+        }
+    };
+    reader.onerror = function() {
+        statusEl.textContent = '❌ Error leyendo el archivo';
+        statusEl.style.color = '#a80000';
+    };
+    reader.readAsText(file);
+}
+
 async function repararSistema() {
     if (!confirm('Esto limpiará el servidor y creará el admin por defecto.\n\n¿Continuar?')) return;
     mostrarSync('Reparando...', 'syncing');
@@ -1045,10 +1186,6 @@ function cargarEstado() {
         return true;
     } catch (e) { return false; }
 }
-
-/* ==========================================
-   GUARDAR ASIENTOS: cada cuenta guarda { debe, haber } como objeto
-   ========================================== */
 function obtenerAsientosDelDOM() {
     const asientos = [];
     const filas = document.querySelectorAll('#cuerpoLibro tr');
@@ -1060,7 +1197,7 @@ function obtenerAsientosDelDOM() {
             fecha: celdas[1].textContent,
             glosa: celdas[2].textContent,
             factura: celdas[3].textContent,
-            cuentas: {} // { codigo: { debe: X, haber: Y } }
+            cuentas: {}
         };
         for (let i = 4; i < celdas.length - 1; i++) {
             const codigo = cuentasLibro[i - 4].codigo;
@@ -1069,6 +1206,1255 @@ function obtenerAsientosDelDOM() {
             const dataHaber = parseFloat(td.getAttribute('data-haber')) || 0;
             if (dataDebe > 0 || dataHaber > 0) {
                 asiento.cuentas[codigo] = { debe: dataDebe, haber: dataHaber };
+            }
+        }
+        asientos.push(asiento);
+    });
+    return asientos;
+}
+
+function restaurarAsientos(asientos) {
+    const tbodyLibro = document.getElementById('cuerpoLibro');
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    asientos.forEach(asiento => {
+        const tr = document.createElement('tr');
+        tr.dataset.nro = asiento.nro;
+        tr.innerHTML = `<td>${asiento.nro}</td><td>${asiento.fecha}</td><td>${asiento.glosa}</td><td>${asiento.factura}</td>`;
+        cuentasLibro.forEach(cuentaCatalogo => {
+            const td = document.createElement('td');
+            td.className = 'num';
+            const datos = asiento.cuentas[cuentaCatalogo.codigo];
+            if (datos) {
+                let debe = 0, haber = 0;
+                if (typeof datos === 'object') {
+                    debe = datos.debe || 0;
+                    haber = datos.haber || 0;
+                } else {
+                    const v = parseFloat(datos) || 0;
+                    if (v > 0) debe = v;
+                    else if (v < 0) haber = Math.abs(v);
+                }
+                td.setAttribute('data-debe', debe.toFixed(2));
+                td.setAttribute('data-haber', haber.toFixed(2));
+                if (debe > 0 && haber > 0) td.textContent = debe.toFixed(2) + "/" + haber.toFixed(2);
+                else if (debe > 0) td.textContent = debe.toFixed(2);
+                else if (haber > 0) td.textContent = "-" + haber.toFixed(2);
+            }
+            tr.appendChild(td);
+        });
+        const tdAccion = document.createElement('td');
+        tdAccion.style.textAlign = 'center';
+        tdAccion.innerHTML = `<button class="btn-delete-row" onclick="eliminarAsiento(this)">✕</button>`;
+        tr.appendChild(tdAccion);
+        tbodyLibro.appendChild(tr);
+    });
+}
+
+function resetearDatosUsuario() {
+    if (!confirm('¿Borrar TODOS tus asientos?')) return;
+    if (!confirm('ÚLTIMA ADVERTENCIA.')) return;
+    localStorage.setItem(getDataKey(), JSON.stringify({ version: 3, timestamp: new Date().toISOString(), correlativo: 1, asientos: [] }));
+    location.reload();
+}
+
+async function cambiarMiPassword() {
+    const actual = document.getElementById('miPassActual').value;
+    const nueva = document.getElementById('miPassNueva').value;
+    if (!actual || !nueva) { alert('Completa ambos campos'); return; }
+    if (nueva.length < 4) { alert('Mínimo 4 caracteres'); return; }
+    if (hashPassword(actual) !== usuarioActual.pass) { alert('Contraseña actual incorrecta'); return; }
+    usuariosCache[usuarioActual.username].pass = hashPassword(nueva);
+    usuarioActual.pass = hashPassword(nueva);
+    await guardarTodoEnServidor();
+    document.getElementById('miPassActual').value = '';
+    document.getElementById('miPassNueva').value = '';
+    alert('Contraseña cambiada');
+}
+
+function mostrarError(msg) {
+    const err = document.getElementById('authError');
+    err.textContent = msg;
+    err.classList.add('show');
+    setTimeout(() => err.classList.remove('show'), 5000);
+}
+
+function iniciarSesion() {
+    const username = document.getElementById('loginUser').value.trim().toLowerCase();
+    const pass = document.getElementById('loginPass').value;
+    if (!username || !pass) { mostrarError('Completa usuario y contraseña'); return; }
+    const user = usuariosCache[username];
+    if (!user) { mostrarError('Usuario no encontrado. Disponibles: ' + Object.keys(usuariosCache).join(', ')); return; }
+    if (!user.activo) { mostrarError('Cuenta desactivada'); return; }
+    if (user.pass !== hashPassword(pass)) { mostrarError('Contraseña incorrecta'); return; }
+    usuarioActual = user;
+    sessionStorage.setItem(SESSION_KEY, username);
+    abrirApp();
+}
+
+function cerrarSesion() {
+    if (!confirm('¿Cerrar sesión?')) return;
+    sessionStorage.removeItem(SESSION_KEY);
+    usuarioActual = null;
+    location.reload();
+}
+
+function abrirApp() {
+    document.getElementById('userAvatar').textContent = usuarioActual.nombre.charAt(0).toUpperCase();
+    document.getElementById('userNameDisplay').textContent = usuarioActual.nombre;
+    const esAdmin = usuarioActual.rol === 'admin';
+    if (esAdmin) {
+        document.getElementById('userRoleDisplay').textContent = '● ADMIN';
+        document.getElementById('menuUsuarios').classList.add('visible');
+        document.getElementById('tabUsuarios').classList.add('visible');
+        document.getElementById('tabUsuariosBajo').classList.add('visible');
+        document.getElementById('btnEliminarPlantilla').classList.add('admin-visible');
+        document.getElementById('configSubtitle').textContent = 'Configuración global (admin)';
+    } else {
+        document.getElementById('userRoleDisplay').textContent = '● USUARIO';
+        document.getElementById('configReadOnly').style.display = 'block';
+        document.getElementById('configPanel').style.display = 'none';
+        document.getElementById('configSubtitle').textContent = 'Solo lectura';
+    }
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('appMain').classList.remove('hidden');
+    inicializarLibroDiario();
+    inicializarFechaOperacion();
+    lineasConfigTemp = [
+        { codigo: "", desc: "", tipo: "debe", valor: "total" },
+        { codigo: "", desc: "", tipo: "haber", valor: "base" },
+        { codigo: "", desc: "", tipo: "haber", valor: "igv" }
+    ];
+    renderizarTablaConfig();
+    renderizarPCGE();
+    document.getElementById('fechaDashboard').textContent = new Date().toLocaleDateString('es-PE');
+    document.getElementById('fechaESF').textContent = new Date().toLocaleDateString('es-PE');
+    document.getElementById('anioER').textContent = new Date().getFullYear();
+    cargarEstado();
+    calcularDashboard();
+    cargarComboBoxPlantillas();
+}
+
+async function recargarTodoDesdeServidor() {
+    mostrarSync('Recargando...', 'syncing');
+    const datos = await leerDatos();
+    if (datos) {
+        if (datos.usuarios) usuariosCache = datos.usuarios;
+        if (datos.plantillas) plantillasCache = datos.plantillas;
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ usuarios: usuariosCache, plantillas: plantillasCache }));
+        cargarComboBoxPlantillas();
+        renderizarUsuariosAdmin();
+        mostrarSync('Actualizado', 'success');
+    } else {
+        mostrarSync('Error', 'error');
+    }
+}
+
+function renderizarUsuariosAdmin() {
+    const tbody = document.getElementById('cuerpoUsuarios');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    let total = 0, activos = 0, admins = 0;
+    Object.keys(usuariosCache).forEach(key => {
+        const u = usuariosCache[key];
+        total++;
+        if (u.activo) activos++;
+        if (u.rol === 'admin') admins++;
+        const fecha = new Date(u.creado).toLocaleDateString('es-PE');
+        const temaEmoji = { futurista: '🌿', ejecutivo: '💼', claro: '⚪' };
+        const tr = document.createElement('tr');
+        if (!u.activo) tr.className = 'user-row-inactive';
+        tr.innerHTML = `
+            <td style="font-weight:700;">${u.username}</td>
+            <td>${u.nombre}</td>
+            <td class="${u.rol === 'admin' ? 'user-status-admin' : ''}">${u.rol === 'admin' ? '👑 ADMIN' : 'USUARIO'}</td>
+            <td class="${u.activo ? 'user-status-active' : 'user-status-inactive'}">${u.activo ? '● ACTIVO' : '● INACTIVO'}</td>
+            <td style="text-align:center; font-size:14px;">${temaEmoji[u.tema || 'futurista']}</td>
+            <td style="font-size:11px;">${fecha}</td>
+            <td style="text-align:center;">
+                <button class="btn btn-small" onclick="abrirModalEditarUsuario('${u.username}')">✎</button>
+                <button class="btn btn-small" onclick="toggleUsuario('${u.username}')">${u.activo ? '🔒' : '🔓'}</button>
+                ${u.username !== 'admin' ? `<button class="btn btn-small danger" onclick="eliminarUsuario('${u.username}')">✕</button>` : ''}
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    document.getElementById('adminTotalUsuarios').textContent = total;
+    document.getElementById('adminUsuariosActivos').textContent = activos;
+    document.getElementById('adminUsuariosAdmin').textContent = admins;
+}
+
+function abrirModalCrearUsuario() {
+    document.getElementById('modalUsuarioTitle').textContent = 'Nuevo Usuario';
+    document.getElementById('modalUserIdOriginal').value = '';
+    document.getElementById('modalUserUsername').value = '';
+    document.getElementById('modalUserUsername').disabled = false;
+    document.getElementById('modalUserNombre').value = '';
+    document.getElementById('modalUserPass').value = '';
+    document.getElementById('modalUserPass').placeholder = 'Mínimo 4 caracteres';
+    document.getElementById('modalUserRol').value = 'user';
+    document.getElementById('modalUsuario').classList.add('show');
+}
+
+function abrirModalEditarUsuario(username) {
+    const u = usuariosCache[username];
+    if (!u) return;
+    document.getElementById('modalUsuarioTitle').textContent = 'Editar Usuario';
+    document.getElementById('modalUserIdOriginal').value = username;
+    document.getElementById('modalUserUsername').value = u.username;
+    document.getElementById('modalUserUsername').disabled = true;
+    document.getElementById('modalUserNombre').value = u.nombre;
+    document.getElementById('modalUserPass').value = '';
+    document.getElementById('modalUserPass').placeholder = 'Dejar vacío para no cambiar';
+    document.getElementById('modalUserRol').value = u.rol;
+    document.getElementById('modalUsuario').classList.add('show');
+}
+
+function cerrarModalUsuario() { document.getElementById('modalUsuario').classList.remove('show'); }
+
+async function guardarUsuarioModal() {
+    const original = document.getElementById('modalUserIdOriginal').value;
+    const username = document.getElementById('modalUserUsername').value.trim().toLowerCase();
+    const nombre = document.getElementById('modalUserNombre').value.trim();
+    const pass = document.getElementById('modalUserPass').value;
+    const rol = document.getElementById('modalUserRol').value;
+    if (!username) { alert('Ingresa usuario'); return; }
+    if (!nombre) { alert('Ingresa nombre'); return; }
+    if (!/^[a-z0-9_]+$/.test(username)) { alert('Solo letras, números y _'); return; }
+
+    if (!original) {
+        if (usuariosCache[username]) { alert('Ese usuario ya existe'); return; }
+        if (pass.length < 4) { alert('Contraseña mínimo 4 caracteres'); return; }
+        usuariosCache[username] = {
+            username, nombre, pass: hashPassword(pass),
+            rol, activo: true, tema: 'futurista',
+            creado: new Date().toISOString()
+        };
+        mostrarSync('Subiendo...', 'syncing');
+        const ok = await guardarTodoEnServidor();
+        if (ok) {
+            mostrarSync('Usuario creado', 'success');
+            alert(`Usuario "${username}" creado.`);
+        } else {
+            mostrarSync('Falló', 'error');
+            alert('Falló al subir.');
+        }
+    } else {
+        usuariosCache[original].nombre = nombre;
+        usuariosCache[original].rol = rol;
+        if (pass.length > 0) {
+            if (pass.length < 4) { alert('Contraseña mínimo 4 caracteres'); return; }
+            usuariosCache[original].pass = hashPassword(pass);
+        }
+        mostrarSync('Actualizando...', 'syncing');
+        const ok = await guardarTodoEnServidor();
+        if (ok) mostrarSync('Actualizado', 'success');
+    }
+    cerrarModalUsuario();
+    renderizarUsuariosAdmin();
+}
+
+async function toggleUsuario(username) {
+    if (username === 'admin' && usuariosCache[username].activo) {
+        alert('No puedes desactivar al admin');
+        return;
+    }
+    usuariosCache[username].activo = !usuariosCache[username].activo;
+    await guardarTodoEnServidor();
+    renderizarUsuariosAdmin();
+}
+
+async function eliminarUsuario(username) {
+    if (username === 'admin') { alert('No puedes eliminar al admin'); return; }
+    if (username === usuarioActual.username) { alert('No puedes eliminarte'); return; }
+    if (!confirm(`¿Eliminar a "${username}"?`)) return;
+    if (!confirm('ÚLTIMA ADVERTENCIA.')) return;
+    delete usuariosCache[username];
+    await guardarTodoEnServidor();
+    renderizarUsuariosAdmin();
+}
+
+function irModulo(nombre, event) {
+    document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+    document.getElementById('mod-' + nombre).classList.add('active');
+
+    document.querySelectorAll('.sidebar-item').forEach(m => m.classList.remove('active'));
+    if (event && event.currentTarget && event.currentTarget.classList.contains('sidebar-item')) {
+        event.currentTarget.classList.add('active');
+    } else {
+        document.querySelectorAll('.sidebar-item').forEach(m => {
+            if (m.getAttribute('onclick') && m.getAttribute('onclick').includes("'" + nombre + "'")) m.classList.add('active');
+        });
+    }
+
+    document.querySelectorAll('.ribbon-tab').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.ribbon-tab').forEach(m => {
+        if (m.getAttribute('onclick') && m.getAttribute('onclick').includes("'" + nombre + "'")) m.classList.add('active');
+    });
+
+    document.querySelectorAll('.sheet-tab').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.sheet-tab').forEach(m => {
+        if (m.getAttribute('onclick') && m.getAttribute('onclick').includes("'" + nombre + "'")) m.classList.add('active');
+    });
+
+    const titulos = { dashboard: 'Dashboard', asientos: 'Movimiento', libro: 'Registro de Gastos e Ingresos', balance: 'Balance 3.17', esf: 'Estado Financiero', er: 'Resultados', pcge: 'Plan Contable', config: 'Plantillas', datos: 'Mis Datos', usuarios: 'Usuarios' };
+    document.getElementById('tituloModuloActual').textContent = titulos[nombre] || nombre;
+
+    if (nombre === 'dashboard') calcularDashboard();
+    if (nombre === 'balance') calcularBalance317();
+    if (nombre === 'esf') calcularESF();
+    if (nombre === 'er') calcularER();
+    if (nombre === 'datos') {
+        actualizarInfoDatos();
+        document.querySelectorAll('.theme-option').forEach(opt => {
+            opt.classList.toggle('selected', opt.dataset.tema === (usuarioActual.tema || 'futurista'));
+        });
+    }
+    if (nombre === 'usuarios') renderizarUsuariosAdmin();
+    if (nombre === 'config') inicializarConfigModulo();
+}
+
+function inicializarConfigModulo() {
+    if (usuarioActual.rol !== 'admin') {
+        document.getElementById('configReadOnly').style.display = 'block';
+        document.getElementById('configPanel').style.display = 'none';
+    }
+}
+
+function aplicarTema(tema) {
+    document.querySelectorAll('.theme-option').forEach(opt => {
+        opt.classList.toggle('selected', opt.dataset.tema === tema);
+    });
+}
+
+async function cambiarTema(tema) {
+    if (!usuarioActual) return;
+    aplicarTema(tema);
+    usuariosCache[usuarioActual.username].tema = tema;
+    usuarioActual.tema = tema;
+    mostrarSync('Guardando...', 'syncing');
+    const ok = await guardarTodoEnServidor();
+    if (ok) mostrarSync('Guardado', 'success');
+}
+
+function inicializarFechaOperacion() {
+    const hoy = new Date();
+    const yyyy = hoy.getFullYear();
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    const dd = String(hoy.getDate()).padStart(2, '0');
+    document.getElementById('txtFechaOperacion').value = `${yyyy}-${mm}-${dd}`;
+}
+
+function formatearFecha(fechaISO) {
+    if (!fechaISO) return '';
+    const partes = fechaISO.split('-');
+    if (partes.length !== 3) return fechaISO;
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+const PCGE_RAW = [
+    ["10","EFECTIVO Y EQUIVALENTES DE EFECTIVO","1","A"],["101","Caja","1","A"],["102","Fondos fijos","1","A"],
+    ["103","Efectivo y cheques en tránsito","1","A"],["104","Cuentas corrientes en instituciones financieras","1","A"],
+    ["1041","Cuentas corrientes operativas","1","A"],["10411","Cuentas corrientes operativas ME","1","A"],
+    ["104111","Cuenta corriente operativa MN","1","A"],["105","Otros equivalentes de efectivo","1","A"],
+    ["12","CUENTAS POR COBRAR COMERCIALES - TERCEROS","1","A"],["121","Facturas, boletas y otros comprobantes por cobrar","1","A"],
+    ["1212","Emitidas en cartera","1","A"],["122","Anticipos de clientes","1","A"],["123","Letras por cobrar","1","A"],
+    ["16","CUENTAS POR COBRAR DIVERSAS - TERCEROS","1","A"],["161","Préstamos","1","A"],
+    ["162","Reclamaciones a terceros","1","A"],["163","Intereses, regalías y dividendos","1","A"],
+    ["164","Depósitos otorgados en garantía","1","A"],["165","Venta de activo inmovilizado","1","A"],
+    ["166","Activos por instrumentos financieros","1","A"],["167","Tributos por acreditar","1","A"],
+    ["169","Otras cuentas por cobrar diversas","1","A"],["17","CUENTAS POR COBRAR DIVERSAS - RELACIONADAS","1","A"],
+    ["18","SERVICIOS Y OTROS CONTRATADOS POR ANTICIPADO","1","A"],["19","ESTIMACIÓN DE CUENTAS DE COBRANZA DUDOSA","1","A"],
+    ["20","MERCADERÍAS","2","A"],["201","Mercaderías","2","A"],["2011","Mercaderías","2","A"],["20111","Costo","2","A"],
+    ["21","PRODUCTOS TERMINADOS","2","A"],["211","Productos terminados","2","A"],
+    ["22","SUBPRODUCTOS, DESECHOS Y DESPERDICIOS","2","A"],["23","PRODUCTOS EN PROCESO","2","A"],
+    ["24","MATERIAS PRIMAS","2","A"],["25","MATERIALES AUXILIARES, SUMINISTROS Y REPUESTOS","2","A"],
+    ["26","ENVASES Y EMBALAJES","2","A"],["27","ACTIVOS NO CORRIENTES MANTENIDOS PARA LA VENTA","2","A"],
+    ["28","INVENTARIOS POR RECIBIR","2","A"],["29","DESVALORIZACIÓN DE INVENTARIOS","2","A"],
+    ["30","INVERSIONES MOBILIARIAS","3","A"],["31","PROPIEDADES DE INVERSIÓN","3","A"],
+    ["32","ACTIVOS POR DERECHO DE USO","3","A"],["33","PROPIEDAD, PLANTA Y EQUIPO","3","A"],
+    ["331","Terrenos","3","A"],["332","Edificaciones","3","A"],["333","Maquinaria y equipo de explotación","3","A"],
+    ["334","Unidades de transporte","3","A"],["335","Muebles y enseres","3","A"],["336","Equipos diversos","3","A"],
+    ["337","Herramientas y unidades de reemplazo","3","A"],["338","Unidades por recibir","3","A"],["339","Obras en curso","3","A"],
+    ["34","INTANGIBLES","3","A"],["35","ACTIVOS BIOLÓGICOS","3","A"],["36","DESVALORIZACIÓN DE ACTIVO INMOVILIZADO","3","A"],
+    ["37","ACTIVO DIFERIDO","3","A"],["38","OTROS ACTIVOS","3","A"],["39","DEPRECIACIÓN Y AMORTIZACIÓN ACUMULADOS","3","A"],
+    ["40","TRIBUTOS, CONTRAPRESTACIONES Y APORTES AL SISTEMA PÚBLICO DE PENSIONES Y DE SALUD POR PAGAR","4","P"],
+    ["401","Gobierno nacional","4","P"],["4011","Impuesto general a las ventas","4","P"],
+    ["40111","IGV - Cuenta propia","4","P"],["40112","IGV - Servicios prestados por no domiciliados","4","P"],
+    ["40113","IGV - Régimen de percepciones","4","P"],["40114","IGV - Régimen de retenciones","4","P"],
+    ["40115","IGV - Importaciones","4","P"],["4012","Impuesto selectivo al consumo","4","P"],
+    ["4015","Derechos aduaneros","4","P"],["4017","Impuesto a la renta","4","P"],
+    ["40171","Renta de tercera categoría","4","P"],["40172","Renta de cuarta categoría","4","P"],
+    ["40173","Renta de quinta categoría","4","P"],["40174","Renta de no domiciliados","4","P"],
+    ["4018","Otros impuestos y contraprestaciones","4","P"],["402","Certificados tributarios","4","P"],
+    ["403","Instituciones públicas","4","P"],["4031","ESSALUD","4","P"],["4032","ONP","4","P"],
+    ["4033","Contribución al SENATI","4","P"],["4034","Contribución al SENCICO","4","P"],
+    ["405","Gobiernos regionales","4","P"],["406","Gobiernos locales","4","P"],
+    ["4061","Impuestos","4","P"],["4062","Contribuciones","4","P"],["4063","Tasas","4","P"],
+    ["409","Otros costos administrativos e intereses","4","P"],
+    ["41","REMUNERACIONES Y PARTICIPACIONES POR PAGAR","4","P"],
+    ["411","Remuneraciones por pagar","4","P"],["4111","Sueldos y salarios por pagar","4","P"],
+    ["4112","Comisiones por pagar","4","P"],["4113","Remuneraciones en especie por pagar","4","P"],
+    ["4114","Gratificaciones por pagar","4","P"],["4115","Vacaciones por pagar","4","P"],
+    ["413","Participaciones de los trabajadores por pagar","4","P"],
+    ["415","Beneficios sociales de los trabajadores por pagar","4","P"],
+    ["4151","Compensación por tiempo de servicios","4","P"],["4152","Adelanto de CTS","4","P"],
+    ["4153","Pensiones y jubilaciones","4","P"],["417","Administradoras de fondos de pensiones","4","P"],
+    ["419","Otras remuneraciones y participaciones por pagar","4","P"],
+    ["42","CUENTAS POR PAGAR COMERCIALES TERCEROS","4","P"],
+    ["421","Facturas, boletas y otros comprobantes por pagar","4","P"],["4211","No emitidas","4","P"],
+    ["4212","Facturas por Pagar Comerciales - Terceros","4","P"],["422","Anticipos a proveedores","4","P"],
+    ["423","Letras por pagar","4","P"],["424","Honorarios por pagar","4","P"],
+    ["43","CUENTAS POR PAGAR COMERCIALES RELACIONADAS","4","P"],
+    ["44","CUENTAS POR PAGAR A LOS ACCIONISTAS Y DIRECTORES","4","P"],
+    ["45","OBLIGACIONES FINANCIERAS","4","P"],["451","Préstamos de instituciones financieras","4","P"],
+    ["4511","Instituciones financieras","4","P"],["4512","Otras entidades","4","P"],
+    ["452","Contratos de arrendamiento financiero","4","P"],["453","Obligaciones emitidas","4","P"],
+    ["454","Otros instrumentos financieros por pagar","4","P"],["455","Costos de financiación por pagar","4","P"],
+    ["456","Préstamos con compromisos de recompra","4","P"],
+    ["46","CUENTAS POR PAGAR DIVERSAS - TERCEROS","4","P"],
+    ["461","Reclamaciones de terceros","4","P"],["464","Pasivos por instrumentos financieros","4","P"],
+    ["465","Pasivos por compra de activo inmovilizado","4","P"],["466","Participación de terceros","4","P"],
+    ["467","Depósitos recibidos en garantía","4","P"],["469","Otras cuentas por pagar diversas","4","P"],
+    ["47","CUENTAS POR PAGAR DIVERSAS - RELACIONADAS","4","P"],
+    ["471","Préstamos","4","P"],["472","Costos de financiación","4","P"],["473","Anticipos recibidos","4","P"],
+    ["474","Regalías","4","P"],["475","Dividendos","4","P"],["476","Depósitos recibidos en garantía","4","P"],
+    ["477","Pasivo por compra de activo inmovilizado","4","P"],["479","Otras cuentas por pagar diversas","4","P"],
+    ["48","PROVISIONES","4","P"],["481","Provisión para litigios","4","P"],
+    ["482","Provisión por desmantelamiento","4","P"],["483","Provisión para reestructuraciones","4","P"],
+    ["484","Provisión para protección y remediación ambiental","4","P"],
+    ["485","Provisión para gastos de responsabilidad social","4","P"],
+    ["486","Provisión para garantías","4","P"],["487","Provisión por activos por derecho de uso","4","P"],
+    ["489","Otras provisiones","4","P"],
+    ["49","PASIVO DIFERIDO","4","P"],["491","Impuesto a la renta diferido","4","P"],
+    ["492","Participaciones de los trabajadores diferidas","4","P"],
+    ["493","Intereses diferidos","4","P"],["494","Ganancia en venta con arrendamiento financiero paralelo","4","P"],
+    ["495","Subsidios recibidos diferidos","4","P"],["496","Ingresos diferidos","4","P"],["497","Costos diferidos","4","P"],
+    ["50","CAPITAL","5","PT"],["501","Capital social","5","PT"],["5011","Acciones","5","PT"],
+    ["5012","Participaciones","5","PT"],["502","Acciones en tesorería","5","PT"],
+    ["51","ACCIONES DE INVERSIÓN","5","PT"],["511","Acciones de inversión","5","PT"],
+    ["512","Acciones de inversión en tesorería","5","PT"],
+    ["52","CAPITAL ADICIONAL","5","PT"],["521","Primas (descuento) de acciones","5","PT"],
+    ["522","Capitalizaciones en trámite","5","PT"],["523","Reducciones de capital pendientes","5","PT"],
+    ["56","RESULTADOS NO REALIZADOS","5","PT"],
+    ["57","EXCEDENTE DE REVALUACIÓN","5","PT"],["571","Excedente de revaluación","5","PT"],
+    ["572","Excedente de revaluación - Acciones liberadas recibidas","5","PT"],
+    ["573","Participación en excedente de revaluación","5","PT"],
+    ["58","RESERVAS","5","PT"],["581","Reinversión","5","PT"],["582","Legal","5","PT"],
+    ["583","Contractuales","5","PT"],["584","Estatutarias","5","PT"],["585","Facultativas","5","PT"],["589","Otras reservas","5","PT"],
+    ["59","RESULTADOS ACUMULADOS","5","PT"],["591","Utilidades no distribuidas","5","PT"],
+    ["592","Pérdidas acumuladas","5","PT"],
+    ["60","COMPRAS","6","G"],["601","Mercaderías","6","G"],["6011","Mercaderías","6","G"],["60111","Compra de Mercadería","6","G"],
+    ["602","Materias primas","6","G"],["603","Materiales auxiliares, suministros y repuestos","6","G"],
+    ["604","Envases y embalajes","6","G"],["609","Costos vinculados con las compras","6","G"],
+    ["61","VARIACIÓN DE INVENTARIOS","6","G"],
+    ["62","GASTOS DE PERSONAL Y DIRECTORES","6","G"],["621","Remuneraciones","6","G"],
+    ["6211","Sueldos y salarios","6","G"],["6212","Comisiones","6","G"],["6213","Remuneraciones en especie","6","G"],
+    ["6214","Gratificaciones","6","G"],["6215","Vacaciones","6","G"],["622","Otras remuneraciones","6","G"],
+    ["623","Indemnizaciones al personal","6","G"],["624","Capacitación","6","G"],["625","Atención al personal","6","G"],
+    ["627","Seguridad, previsión social y otras contribuciones","6","G"],
+    ["6271","Régimen de prestaciones de salud","6","G"],["6272","Régimen de pensiones","6","G"],
+    ["6273","Seguro complementario de trabajo de riesgo","6","G"],["6274","Seguro de vida","6","G"],
+    ["6275","EPS y otros particulares","6","G"],["6277","Contribuciones al SENATI","6","G"],
+    ["628","Retribuciones al directorio","6","G"],["629","Beneficios sociales de los trabajadores","6","G"],
+    ["6291","Compensación por tiempo de servicio","6","G"],["6292","Pensiones y jubilaciones","6","G"],
+    ["6293","Otros beneficios post-empleo","6","G"],["6294","Participación en las utilidades","6","G"],
+    ["63","GASTOS DE SERVICIOS PRESTADOS POR TERCEROS","6","G"],
+    ["631","Transporte, correos y gastos de viaje","6","G"],["6311","Transporte","6","G"],
+    ["63111","Servicio de transporte de carga","6","G"],["63112","De pasajeros","6","G"],
+    ["6312","Correos","6","G"],["6313","Alojamiento","6","G"],["6314","Alimentación","6","G"],
+    ["6315","Otros gastos de viaje","6","G"],
+    ["632","Asesoría y consultoría","6","G"],["6321","Administrativa","6","G"],["6322","Legal y tributaria","6","G"],
+    ["6323","Auditoría y contable","6","G"],["6324","Mercadotecnia","6","G"],["6325","Medioambiental","6","G"],
+    ["6326","Investigación y desarrollo","6","G"],["6327","Producción","6","G"],["6329","Otros","6","G"],
+    ["633","Producción encargada a terceros","6","G"],["634","Mantenimiento y reparaciones","6","G"],
+    ["635","Alquileres","6","G"],["6351","Terrenos","6","G"],["6352","Edificaciones","6","G"],
+    ["6353","Maquinarias y equipos de explotación","6","G"],["6354","Equipo de transporte","6","G"],
+    ["6355","Muebles y enseres","6","G"],["6356","Equipos diversos","6","G"],
+    ["636","Servicios básicos","6","G"],["6361","Energía eléctrica","6","G"],["6362","Gas","6","G"],
+    ["6363","Agua","6","G"],["6364","Teléfono","6","G"],["6365","Internet","6","G"],
+    ["6366","Radio","6","G"],["6367","Cable","6","G"],
+    ["637","Publicidad, publicaciones, relaciones públicas","6","G"],["6371","Publicidad","6","G"],
+    ["6372","Publicaciones","6","G"],["6373","Relaciones públicas","6","G"],
+    ["638","Servicios de contratistas","6","G"],["639","Otros servicios prestados por terceros","6","G"],
+    ["6391","Gastos bancarios","6","G"],["6392","Gastos de laboratorio","6","G"],["6393","Seguridad - Vigilancia","6","G"],
+    ["64","GASTOS POR TRIBUTOS","6","G"],["641","Gobierno nacional","6","G"],
+    ["6411","IGV y selectivo al consumo","6","G"],["6412","ITF","6","G"],["6413","ITAN","6","G"],
+    ["6414","Juegos de casino y tragamonedas","6","G"],["6415","Regalías mineras","6","G"],
+    ["6416","Cánones","6","G"],["6419","Otros","6","G"],
+    ["642","Gobierno regional","6","G"],["643","Gobierno local","6","G"],
+    ["6431","Impuesto predial","6","G"],["6432","Arbitrios municipales","6","G"],
+    ["6433","Impuesto al patrimonio vehicular","6","G"],["6434","Licencia de funcionamiento","6","G"],["6439","Otros","6","G"],
+    ["644","Otros gastos por tributos","6","G"],["6442","Contribución al SENCICO","6","G"],["6443","Otros","6","G"],
+    ["645","Gastos en deuda tributaria","6","G"],["6451","Intereses","6","G"],["6452","Intereses - fraccionamiento","6","G"],
+    ["6453","Multas","6","G"],["6454","Costas y otros","6","G"],
+    ["65","OTROS GASTOS DE GESTIÓN","6","G"],["651","Seguros","6","G"],["652","Regalías","6","G"],
+    ["653","Suscripciones","6","G"],["654","Licencias y derechos de vigencia","6","G"],
+    ["655","Costo neto de enajenación de activos inmovilizados","6","G"],
+    ["656","Suministros","6","G"],["6561","Combustible","6","G"],["657","Activos Menores 1/4 UIT","6","G"],
+    ["658","Gestión medioambiental","6","G"],["659","Otros gastos de gestión","6","G"],
+    ["6591","Donaciones","6","G"],["6592","Sanciones administrativas","6","G"],
+    ["66","PÉRDIDA POR MEDICIÓN DE ACTIVOS NO FINANCIEROS","6","G"],
+    ["67","GASTOS FINANCIEROS","6","G"],["671","Gastos en operaciones de endeudamiento","6","G"],
+    ["672","Pérdida por instrumentos financieros derivados","6","G"],["673","Intereses por préstamos","6","G"],
+    ["674","Gastos en operaciones de factoraje (factoring)","6","G"],
+    ["675","Descuentos concedidos por pronto pago","6","G"],["676","Diferencia de cambio","6","G"],
+    ["677","Pérdida por medición de activos y pasivos financieros","6","G"],
+    ["678","Participación en resultados de entidades relacionadas","6","G"],
+    ["679","Otros gastos financieros","6","G"],
+    ["68","VALUACIÓN Y DETERIORO DE ACTIVOS Y PROVISIONES","6","G"],
+    ["681","Depreciación de propiedades de inversión","6","G"],["682","Depreciación de activos por derecho de uso","6","G"],
+    ["683","Depreciación de activos por derecho de uso - operativo","6","G"],
+    ["684","Depreciación de propiedad, planta y equipo","6","G"],
+    ["685","Depreciación de activos biológicos en producción","6","G"],
+    ["686","Amortización de intangibles","6","G"],["687","Valuación de activos","6","G"],
+    ["688","Deterioro del valor de los activos","6","G"],["689","Provisiones","6","G"],
+    ["69","COSTO DE VENTAS","6","G"],["691","Costo de Ventas - Mercaderías","6","G"],
+    ["692","Productos terminados","6","G"],["693","Servicios terminados","6","G"],
+    ["694","Subproductos, desechos y desperdicios","6","G"],
+    ["695","Gastos por desvalorización de inventarios","6","G"],
+    ["70","VENTAS","7","I"],["701","Mercaderías","7","I"],["7011","Mercaderías - exportación","7","I"],
+    ["70111","Terceros","7","I"],["70112","Relacionadas","7","I"],
+    ["7012","Mercaderías - venta local","7","I"],["70121","Terceros","7","I"],["70122","Relacionadas","7","I"],
+    ["702","Productos terminados","7","I"],["703","Servicios Terminados","7","I"],
+    ["704","Subproductos, desechos y desperdicios","7","I"],["709","Devoluciones sobre ventas","7","I"],
+    ["71","VARIACIÓN DE LA PRODUCCIÓN ALMACENADA","7","I"],["72","PRODUCCIÓN DE ACTIVO INMOVILIZADO","7","I"],
+    ["73","DESCUENTOS, REBAJAS Y BONIFICACIONES OBTENIDOS","7","I"],
+    ["74","DESCUENTOS, REBAJAS Y BONIFICACIONES CONCEDIDOS","7","I"],
+    ["75","OTROS INGRESOS DE GESTIÓN","7","I"],["751","Servicios en beneficio del personal","7","I"],
+    ["752","Comisiones y corretajes","7","I"],["753","Regalías","7","I"],["754","Alquileres","7","I"],
+    ["755","Recuperación de cuentas de valuación","7","I"],
+    ["756","Enajenación de activos inmovilizados","7","I"],
+    ["757","Recuperación de deterioro de cuentas","7","I"],
+    ["759","Otros ingresos de gestión","7","I"],["7591","Subsidios gubernamentales","7","I"],
+    ["7592","Reclamos al seguro","7","I"],["7593","Donaciones","7","I"],
+    ["7594","Devoluciones tributarias","7","I"],["7599","Otros ingresos de gestión","7","I"],
+    ["76","GANANCIA POR MEDICIÓN DE ACTIVOS NO FINANCIEROS","7","I"],
+    ["77","INGRESOS FINANCIEROS","7","I"],["771","Ganancia por instrumento financiero derivado","7","I"],
+    ["772","Rendimientos ganados","7","I"],["773","Dividendos","7","I"],
+    ["774","Ingresos en operaciones de factoraje","7","I"],
+    ["775","Descuentos obtenidos por pronto pago","7","I"],["776","Diferencia en cambio","7","I"],
+    ["777","Ganancia por medición de activos y pasivos financieros","7","I"],
+    ["778","Participación en resultados de entidades relacionadas","7","I"],
+    ["779","Otros ingresos financieros","7","I"],
+    ["78","CARGAS CUBIERTAS POR PROVISIONES","7","I"],
+    ["79","CARGAS IMPUTABLES A CUENTAS DE COSTOS Y GASTOS","7","I"],
+    ["80","MARGEN COMERCIAL","8","I"],["81","PRODUCCIÓN DEL EJERCICIO","8","I"],
+    ["82","VALOR AGREGADO","8","I"],["83","EXCEDENTE BRUTO DE EXPLOTACIÓN","8","I"],
+    ["84","RESULTADO DE EXPLOTACIÓN","8","I"],["85","RESULTADO ANTES DE PARTICIPACIONES","8","I"],
+    ["88","IMPUESTO A LA RENTA","8","I"],["89","DETERMINACIÓN DEL RESULTADO","8","I"],
+    ["90","COSTO DE PRODUCCIÓN","9","G"],["91","COSTO DEL SERVICIO","9","G"],
+    ["94","GASTOS ADMINISTRATIVOS","9","G"],["942","Gastos de personal y directores","9","G"],
+    ["943","Gastos de servicios prestados por terceros","9","G"],["944","Gastos por tributos","9","G"],
+    ["945","Otros gastos de gestión","9","G"],["948","Valuación y deterioro de activos","9","G"],
+    ["95","GASTOS DE VENTAS","9","G"],["952","Gastos de personal y directores","9","G"],
+    ["953","Gastos de servicios prestados por terceros","9","G"],["954","Gastos por tributos","9","G"],
+    ["955","Otros gastos de gestión","9","G"],["958","Valuación y deterioro de activos","9","G"],
+    ["97","GASTOS FINANCIEROS","9","G"],["971","Gastos en operaciones de endeudamiento","9","G"],
+    ["972","Pérdida en instrumentos financieros derivados","9","G"],["973","Intereses de préstamos","9","G"],
+    ["974","Gastos en operaciones de factoraje","9","G"],["975","Descuentos concedidos","9","G"],
+    ["976","Diferencia de cambio","9","G"],["977","Pérdida por medición de activos y pasivos","9","G"],
+    ["978","Participación en resultados","9","G"],["979","Otros gastos financieros","9","G"],
+    ["01","BIENES Y VALORES ENTREGADOS","0","O"],["02","DERECHOS SOBRE INSTRUMENTOS FINANCIEROS","0","O"],
+    ["03","OTRAS CUENTAS DE ORDEN DEUDORAS","0","O"],["04","CONTRAPARTIDA CUENTAS DE ORDEN DEUDORAS","0","O"],
+    ["06","BIENES Y VALORES RECIBIDOS","0","O"],["07","COMPROMISOS SOBRE INSTRUMENTOS FINANCIEROS","0","O"],
+    ["08","OTRAS CUENTAS DE ORDEN ACREEDORAS","0","O"],["09","CONTRAPARTIDA CUENTAS DE ORDEN ACREEDORAS","0","O"]
+];
+
+const catalogoCuentas = PCGE_RAW.map(item => {
+    const [codigo, nombre, elemento, tipo] = item;
+    let naturaleza = "deudora", grupo = "ACTIVOS";
+    if (tipo === "P") { naturaleza = "acreedora"; grupo = "PASIVOS"; }
+    else if (tipo === "PT") { naturaleza = "acreedora"; grupo = "PATRIMONIO"; }
+    else if (tipo === "G") { naturaleza = "deudora"; grupo = "GASTOS"; }
+    else if (tipo === "I") { naturaleza = "acreedora"; grupo = "INGRESOS"; }
+    else if (tipo === "O") { naturaleza = "deudora"; grupo = "CUENTAS DE ORDEN"; }
+    const primerDigito = codigo.charAt(0);
+    const primerosDos = codigo.substring(0, 2);
+    let categoria317 = "NINGUNA", excluir317 = false;
+    if (primerosDos === "79" || codigo === "79") { excluir317 = true; categoria317 = "EXCLUIDA"; }
+    else if (["1", "2", "3", "4", "5"].includes(primerDigito)) { categoria317 = "BALANCE_GENERAL"; }
+    else if (primerDigito === "6" || primerDigito === "7") { categoria317 = "RESULTADOS_NATURALEZA"; }
+    else if (primerDigito === "9") { categoria317 = "RESULTADOS_FUNCION"; }
+    else if (primerDigito === "8") { categoria317 = "GESTION"; excluir317 = true; }
+    else if (primerDigito === "0") { categoria317 = "ORDEN"; excluir317 = true; }
+    return { codigo, nombre, grupo, naturaleza, elemento, tipo, categoria317, excluir317 };
+});
+
+function inicializarLibroDiario() {
+    const filaGrupos = document.getElementById('filaGrupos');
+    const filaCabecera = document.getElementById('filaCabeceraCuentas');
+    filaGrupos.innerHTML = '<th colspan="5" style="background:#217346; color:white;">DATOS GENERALES</th>';
+    filaCabecera.innerHTML = `<th>N°</th><th>Fecha</th><th>Glosa</th><th>Doc.</th><th style="width:40px;">✕</th>`;
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    const grupos = {};
+    cuentasLibro.forEach(c => {
+        if (!grupos[c.grupo]) grupos[c.grupo] = [];
+        grupos[c.grupo].push(c);
+    });
+    const colores = { "ACTIVOS": "#217346", "PASIVOS": "#c0504d", "PATRIMONIO": "#7b1fa2", "GASTOS": "#e65100", "INGRESOS": "#0078d4" };
+    for (const nombreGrupo in grupos) {
+        const cuentasGrupo = grupos[nombreGrupo];
+        const thGrupo = document.createElement('th');
+        thGrupo.colSpan = cuentasGrupo.length;
+        thGrupo.style.background = colores[nombreGrupo] || "#217346";
+        thGrupo.style.color = "white";
+        thGrupo.textContent = nombreGrupo;
+        filaGrupos.appendChild(thGrupo);
+        cuentasGrupo.forEach(cuenta => {
+            const th = document.createElement('th');
+            th.textContent = cuenta.codigo;
+            filaCabecera.appendChild(th);
+        });
+    }
+    const thAccion = document.createElement('th');
+    thAccion.style.background = "#217346";
+    thAccion.style.color = "white";
+    thAccion.textContent = '✕';
+    filaCabecera.appendChild(thAccion);
+}
+
+function cargarComboBoxPlantillas() {
+    const cbo = document.getElementById('cboTipo');
+    if (!cbo) return;
+    const valorActual = cbo.value;
+    cbo.innerHTML = '<option value="" disabled selected>-- Seleccione una plantilla --</option>';
+    for (const key in plantillasCache) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = plantillasCache[key].nombre;
+        cbo.appendChild(option);
+    }
+    if (valorActual && plantillasCache[valorActual]) cbo.value = valorActual;
+}
+
+function recalcularDesde(campoEditado) {
+    const base = document.getElementById('txtBase');
+    const igv = document.getElementById('txtIGV');
+    const total = document.getElementById('txtTotal');
+    const TASA_IGV = 0.18;
+    if (campoEditado === 'base') {
+        const b = parseFloat(base.value);
+        if (isNaN(b) || base.value.trim() === "") { vBase = vIGV = vTotal = 0; igv.value = ""; total.value = ""; }
+        else { vBase = b; vIGV = Math.round(b * TASA_IGV * 100) / 100; vTotal = b + vIGV; igv.value = vIGV.toFixed(2); total.value = vTotal.toFixed(2); }
+    } else if (campoEditado === 'igv') {
+        const i = parseFloat(igv.value);
+        if (isNaN(i) || igv.value.trim() === "") {
+            if (base.value.trim() !== "" && !isNaN(parseFloat(base.value))) {
+                const b = parseFloat(base.value); vBase = b; vIGV = Math.round(b * TASA_IGV * 100) / 100; vTotal = b + vIGV;
+                igv.value = vIGV.toFixed(2); total.value = vTotal.toFixed(2);
+            } else { vBase = vIGV = vTotal = 0; total.value = ""; }
+        } else { vIGV = i; vBase = Math.round((i / TASA_IGV) * 100) / 100; vTotal = vBase + vIGV; base.value = vBase.toFixed(2); total.value = vTotal.toFixed(2); }
+    } else if (campoEditado === 'total') {
+        const t = parseFloat(total.value);
+        if (isNaN(t) || total.value.trim() === "") { vBase = vIGV = vTotal = 0; base.value = ""; igv.value = ""; }
+        else { vTotal = t; vBase = Math.round((t / (1 + TASA_IGV)) * 100) / 100; vIGV = Math.round((t - vBase) * 100) / 100; base.value = vBase.toFixed(2); igv.value = vIGV.toFixed(2); }
+    }
+    calcularYPrevisualizar();
+}
+
+function calcularYPrevisualizar() {
+    const tbody = document.querySelector('#tablaPreview tbody');
+    const tipo = document.getElementById('cboTipo').value;
+    if (!tipo || !plantillasCache[tipo]) { tbody.innerHTML = ''; return; }
+    if (vBase === 0 && vIGV === 0 && vTotal === 0) { tbody.innerHTML = ''; return; }
+    tbody.innerHTML = '';
+    plantillasCache[tipo].lineas.forEach(c => {
+        let monto = 0;
+        if (c.valor === 'base') monto = vBase;
+        else if (c.valor === 'igv') monto = vIGV;
+        else if (c.valor === 'total') monto = vTotal;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-weight:700; color:#217346;">${c.codigo}</td>
+            <td>${c.desc}</td>
+            <td class="num">${c.tipo === 'debe' ? monto.toFixed(2) : ''}</td>
+            <td class="num">${c.tipo === 'haber' ? monto.toFixed(2) : ''}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function insertarAsiento() {
+    const tipo = document.getElementById('cboTipo').value;
+    const factura = document.getElementById('txtFactura').value;
+    const glosaInput = document.getElementById('txtGlosa').value;
+    const fechaOperacion = document.getElementById('txtFechaOperacion').value;
+
+    if (tipo === "") { alert("Seleccione un tipo de operación"); return; }
+    if (factura === "") { alert("Ingrese el número de factura"); return; }
+    if (!fechaOperacion) { alert("Seleccione la fecha de operación"); return; }
+    if (vTotal === 0) { alert("Ingrese los montos"); return; }
+
+    const glosaFinal = glosaInput !== "" ? glosaInput.toUpperCase() : plantillasCache[tipo].nombre + " SEGUN FACTURA " + factura;
+    const fechaFormateada = formatearFecha(fechaOperacion);
+    const nroAsiento = correlativo++;
+
+    const acumulado = {};
+    plantillasCache[tipo].lineas.forEach(linea => {
+        let monto = 0;
+        if (linea.valor === 'base') monto = vBase;
+        else if (linea.valor === 'igv') monto = vIGV;
+        else if (linea.valor === 'total') monto = vTotal;
+        if (!acumulado[linea.codigo]) acumulado[linea.codigo] = { debe: 0, haber: 0 };
+        if (linea.tipo === 'debe') acumulado[linea.codigo].debe += monto;
+        else acumulado[linea.codigo].haber += monto;
+    });
+
+    const tbodyLibro = document.getElementById('cuerpoLibro');
+    const tr = document.createElement('tr');
+    tr.dataset.nro = nroAsiento;
+    tr.innerHTML = `<td>${nroAsiento}</td><td>${fechaFormateada}</td><td>${glosaFinal}</td><td>${factura}</td>`;
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    cuentasLibro.forEach(cuentaCatalogo => {
+        const td = document.createElement('td');
+        td.className = 'num';
+        const acc = acumulado[cuentaCatalogo.codigo];
+        if (acc && (acc.debe > 0 || acc.haber > 0)) {
+            td.setAttribute('data-debe', acc.debe.toFixed(2));
+            td.setAttribute('data-haber', acc.haber.toFixed(2));
+            if (acc.debe > 0 && acc.haber > 0) {
+                td.textContent = acc.debe.toFixed(2) + "/" + acc.haber.toFixed(2);
+            } else if (acc.debe > 0) {
+                td.textContent = acc.debe.toFixed(2);
             } else {
-                // Compatibilidad con formato antiguo (texto)
-                const texto = td.textContent.trim
+                td.textContent = "-" + acc.haber.toFixed(2);
+            }
+        }
+        tr.appendChild(td);
+    });
+    const tdAccion = document.createElement('td');
+    tdAccion.style.textAlign = 'center';
+    tdAccion.innerHTML = `<button class="btn-delete-row" onclick="eliminarAsiento(this)">✕</button>`;
+    tr.appendChild(tdAccion);
+    tbodyLibro.appendChild(tr);
+
+    alert(`Asiento N° ${nroAsiento} registrado el ${fechaFormateada}.`);
+    limpiarFormulario();
+    guardarEstado();
+    calcularDashboard();
+}
+
+function limpiarFormulario() {
+    document.getElementById('txtBase').value = "";
+    document.getElementById('txtIGV').value = "";
+    document.getElementById('txtTotal').value = "";
+    document.getElementById('txtFactura').value = "";
+    document.getElementById('txtGlosa').value = "";
+    document.querySelector('#tablaPreview tbody').innerHTML = "";
+    vBase = vIGV = vTotal = 0;
+    document.getElementById('cboTipo').selectedIndex = 0;
+    inicializarFechaOperacion();
+    const inputXML = document.getElementById('inputXML');
+    if (inputXML) inputXML.value = '';
+    const statusEl = document.getElementById('xmlStatus');
+    if (statusEl) { statusEl.textContent = 'Sin archivo cargado'; statusEl.style.color = '#666'; }
+}
+
+function eliminarAsiento(btn) {
+    if (!confirm('¿Eliminar este asiento?')) return;
+    btn.closest('tr').remove();
+    guardarEstado();
+    calcularDashboard();
+}
+
+async function eliminarPlantillaSeleccionada() {
+    if (usuarioActual.rol !== 'admin') { alert('Solo el administrador.'); return; }
+    const cbo = document.getElementById('cboTipo');
+    const key = cbo.value;
+    if (!key || !plantillasCache[key]) { alert('Selecciona una plantilla.'); return; }
+    if (!confirm(`¿Eliminar la plantilla "${plantillasCache[key].nombre}"?`)) return;
+    delete plantillasCache[key];
+    mostrarSync('Guardando en servidor...', 'syncing');
+    const ok = await guardarTodoEnServidor();
+    if (ok) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ usuarios: usuariosCache, plantillas: plantillasCache }));
+        cbo.value = '';
+        cargarComboBoxPlantillas();
+        limpiarFormulario();
+        mostrarSync('Plantilla eliminada', 'success');
+    } else {
+        mostrarSync('Falló', 'error');
+    }
+}
+
+function calcularDashboard() {
+    const saldos = obtenerSaldos();
+    let dineroDisponible = 0;
+    catalogoCuentas.forEach(c => {
+        if (c.codigo.startsWith("101") || c.codigo.startsWith("104")) {
+            const s = saldos[c.codigo];
+            if (s) dineroDisponible += (s.debe - s.haber);
+        }
+    });
+    document.getElementById('kpiDinero').textContent = 'S/ ' + formatoNumero(dineroDisponible);
+
+    let totalIngresos = 0, totalGastos = 0;
+    catalogoCuentas.forEach(c => {
+        const s = saldos[c.codigo];
+        if (!s || c.codigo === "79" || c.excluir317) return;
+        const elem = c.codigo.charAt(0);
+        if (elem === "7") totalIngresos += (s.haber - s.debe);
+        else if (elem === "6") totalGastos += (s.debe - s.haber);
+    });
+    document.getElementById('kpiGanancia').textContent = 'S/ ' + formatoNumero(totalIngresos - totalGastos);
+
+    let porCobrar = 0, cuentasVencidas = 0;
+    catalogoCuentas.forEach(c => {
+        const primerosDos = c.codigo.substring(0, 2);
+        if (["12", "16", "17"].includes(primerosDos)) {
+            const s = saldos[c.codigo];
+            if (s) { const monto = s.debe - s.haber; if (monto > 0) { porCobrar += monto; cuentasVencidas++; } }
+        }
+    });
+    document.getElementById('kpiPorCobrar').textContent = 'S/ ' + formatoNumero(porCobrar);
+    document.getElementById('kpiPorCobrarPie').textContent = cuentasVencidas + ' cuentas';
+
+    let porPagar = 0;
+    catalogoCuentas.forEach(c => {
+        const primerosDos = c.codigo.substring(0, 2);
+        if (["40", "41", "42", "43", "44", "45", "46", "47"].includes(primerosDos)) {
+            const s = saldos[c.codigo];
+            if (s) { const monto = s.haber - s.debe; if (monto > 0) porPagar += monto; }
+        }
+    });
+    document.getElementById('kpiPorPagar').textContent = 'S/ ' + formatoNumero(porPagar);
+    if (dineroDisponible >= porPagar) {
+        document.getElementById('kpiPorPagarPie').textContent = 'Cubierto con caja';
+        document.getElementById('kpiPorPagarPie').style.color = '#107c10';
+    } else {
+        document.getElementById('kpiPorPagarPie').textContent = 'Faltan S/ ' + formatoNumero(porPagar - dineroDisponible);
+        document.getElementById('kpiPorPagarPie').style.color = '#a80000';
+    }
+
+    let ventas = 0, costoVentas = 0, gastosOperativos = 0;
+    catalogoCuentas.forEach(c => {
+        const s = saldos[c.codigo];
+        if (!s || c.codigo === "79" || c.excluir317) return;
+        const primerosDos = c.codigo.substring(0, 2);
+        const elem = c.codigo.charAt(0);
+        if (primerosDos === "70") ventas += (s.haber - s.debe);
+        else if (primerosDos === "69") costoVentas += (s.debe - s.haber);
+        else if (elem === "6") gastosOperativos += (s.debe - s.haber);
+    });
+    document.getElementById('resVentas').textContent = formatoNumero(ventas);
+    document.getElementById('resCostoVentas').textContent = formatoNumero(costoVentas);
+    document.getElementById('resGastos').textContent = formatoNumero(gastosOperativos);
+    document.getElementById('resGanancia').textContent = formatoNumero(ventas - costoVentas - gastosOperativos);
+
+    let catPersonal = 0, catCompras = 0, catServicios = 0, catOtros = 0;
+    catalogoCuentas.forEach(c => {
+        const s = saldos[c.codigo];
+        if (!s || c.excluir317 || c.codigo.charAt(0) !== "6") return;
+        const primerosDos = c.codigo.substring(0, 2);
+        const monto = s.debe - s.haber;
+        if (monto <= 0) return;
+        if (primerosDos === "62") catPersonal += monto;
+        else if (["60", "69"].includes(primerosDos)) catCompras += monto;
+        else if (primerosDos === "63") catServicios += monto;
+        else catOtros += monto;
+    });
+    const totalGastosDona = catPersonal + catCompras + catServicios + catOtros;
+    const donaChart = document.getElementById('donaChart');
+    const legend = document.getElementById('donaLegend');
+    if (totalGastosDona === 0) {
+        donaChart.style.background = 'conic-gradient(#e0e0e0 0% 100%)';
+        legend.innerHTML = '<div style="color:#999; font-size:11px;">Sin datos</div>';
+    } else {
+        const colores = { personal: '#217346', compras: '#0078d4', servicios: '#ff8c00', otros: '#7b1fa2' };
+        const partes = [
+            { pct: (catPersonal / totalGastosDona) * 100, color: colores.personal },
+            { pct: (catCompras / totalGastosDona) * 100, color: colores.compras },
+            { pct: (catServicios / totalGastosDona) * 100, color: colores.servicios },
+            { pct: (catOtros / totalGastosDona) * 100, color: colores.otros }
+        ];
+        let acum = 0;
+        const paradas = [];
+        partes.forEach(p => { if (p.pct > 0) { paradas.push(`${p.color} ${acum}% ${acum + p.pct}%`); acum += p.pct; } });
+        donaChart.style.background = `conic-gradient(${paradas.join(', ')})`;
+        legend.innerHTML = [
+            { nombre: 'Personal', color: colores.personal },
+            { nombre: 'Compras', color: colores.compras },
+            { nombre: 'Servicios', color: colores.servicios },
+            { nombre: 'Otros', color: colores.otros }
+        ].map(i => `<div class="item"><div class="dot" style="background-color: ${i.color};"></div><span>${i.nombre}</span></div>`).join('');
+    }
+}
+
+function formatoNumero(num) { return num.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function renderizarTablaConfig() {
+    const tbody = document.querySelector('#tablaConfigLineas tbody');
+    tbody.innerHTML = "";
+    lineasConfigTemp.forEach((linea, index) => {
+        const tr = document.createElement('tr');
+        let opcionesCuentas = '<option value="">-- Seleccione --</option>';
+        catalogoCuentas.filter(c => c.codigo.length <= 5).forEach(c => {
+            const selected = (c.codigo === linea.codigo) ? 'selected' : '';
+            opcionesCuentas += `<option value="${c.codigo}" ${selected}>${c.codigo} - ${c.nombre}</option>`;
+        });
+        tr.innerHTML = `
+            <td><select onchange="actualizarLineaConfig(${index}, 'codigo', this.value)">${opcionesCuentas}</select></td>
+            <td><input type="text" value="${linea.desc}" onchange="actualizarLineaConfig(${index}, 'desc', this.value)"></td>
+            <td>
+                <select onchange="actualizarLineaConfig(${index}, 'tipo', this.value)">
+                    <option value="debe" ${linea.tipo === 'debe' ? 'selected' : ''}>DEBE</option>
+                    <option value="haber" ${linea.tipo === 'haber' ? 'selected' : ''}>HABER</option>
+                </select>
+            </td>
+            <td style="text-align:center; font-size:10px; color:#666;">${obtenerNaturaleza(linea.codigo)}</td>
+            <td>
+                <select onchange="actualizarLineaConfig(${index}, 'valor', this.value)">
+                    <option value="base" ${linea.valor === 'base' ? 'selected' : ''}>BASE</option>
+                    <option value="igv" ${linea.valor === 'igv' ? 'selected' : ''}>IGV</option>
+                    <option value="total" ${linea.valor === 'total' ? 'selected' : ''}>TOTAL</option>
+                </select>
+            </td>
+            <td style="text-align:center;">
+                <button class="btn-delete-row" onclick="eliminarLineaConfig(${index})">✕</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function obtenerNaturaleza(codigo) {
+    const cuenta = catalogoCuentas.find(c => c.codigo === codigo);
+    return cuenta ? cuenta.naturaleza : '-';
+}
+
+function actualizarLineaConfig(index, campo, valor) {
+    lineasConfigTemp[index][campo] = valor;
+    if (campo === 'codigo') {
+        const cuenta = catalogoCuentas.find(c => c.codigo === valor);
+        if (cuenta && lineasConfigTemp[index].desc === "") lineasConfigTemp[index].desc = cuenta.nombre;
+        renderizarTablaConfig();
+    }
+}
+
+function agregarLineaConfig() { lineasConfigTemp.push({ codigo: "", desc: "", tipo: "debe", valor: "base" }); renderizarTablaConfig(); }
+function eliminarLineaConfig(index) { if (lineasConfigTemp.length <= 2) { alert("Mínimo 2 líneas."); return; } lineasConfigTemp.splice(index, 1); renderizarTablaConfig(); }
+
+async function guardarPlantilla() {
+    if (usuarioActual.rol !== 'admin') { alert('Solo el administrador.'); return; }
+    const nombre = document.getElementById('txtNombrePlantilla').value.trim();
+    if (nombre === "") { alert("Ingrese un nombre."); return; }
+    if (lineasConfigTemp.length < 2) { alert("Mínimo 2 líneas."); return; }
+    for (let i = 0; i < lineasConfigTemp.length; i++) {
+        const l = lineasConfigTemp[i];
+        if (l.codigo === "" || l.desc === "") { alert(`Línea ${i + 1} incompleta.`); return; }
+    }
+    const key = "custom_" + Date.now();
+    const nuevaPlantilla = { nombre: nombre.toUpperCase(), custom: true, lineas: JSON.parse(JSON.stringify(lineasConfigTemp)) };
+    plantillasCache[key] = nuevaPlantilla;
+    mostrarSync('Subiendo al servidor...', 'syncing');
+    const ok = await guardarTodoEnServidor();
+    if (ok) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ usuarios: usuariosCache, plantillas: plantillasCache }));
+        cargarComboBoxPlantillas();
+        mostrarSync('Plantilla guardada', 'success');
+        alert(`Plantilla "${nombre}" guardada.`);
+        limpiarConfig();
+    } else {
+        delete plantillasCache[key];
+        mostrarSync('Falló', 'error');
+    }
+}
+
+function limpiarConfig() {
+    document.getElementById('txtNombrePlantilla').value = "";
+    lineasConfigTemp = [
+        { codigo: "", desc: "", tipo: "debe", valor: "base" },
+        { codigo: "", desc: "", tipo: "haber", valor: "total" }
+    ];
+    renderizarTablaConfig();
+}
+
+function obtenerSaldos() {
+    const saldos = {};
+    catalogoCuentas.forEach(c => {
+        saldos[c.codigo] = { debe: 0, haber: 0, nombre: c.nombre, grupo: c.grupo, categoria317: c.categoria317, excluir317: c.excluir317 };
+    });
+    const filas = document.querySelectorAll('#cuerpoLibro tr');
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        for (let i = 4; i < celdas.length - 1; i++) {
+            const codigoCuenta = cuentasLibro[i - 4].codigo;
+            const td = celdas[i];
+            const dataDebe = parseFloat(td.getAttribute('data-debe'));
+            const dataHaber = parseFloat(td.getAttribute('data-haber'));
+            if (!isNaN(dataDebe) || !isNaN(dataHaber)) {
+                saldos[codigoCuenta].debe += dataDebe || 0;
+                saldos[codigoCuenta].haber += dataHaber || 0;
+            }
+        }
+    });
+    return saldos;
+}
+
+function actualizarInfoDatos() {
+    if (!usuarioActual) return;
+    document.getElementById('infoUsuario').textContent = usuarioActual.username;
+    document.getElementById('infoCreado').textContent = new Date(usuarioActual.creado).toLocaleDateString('es-PE');
+    document.getElementById('infoAsientos').textContent = document.querySelectorAll('#cuerpoLibro tr').length;
+    let count = 0;
+    for (const key in plantillasCache) count++;
+    document.getElementById('infoPlantillas').textContent = count;
+    document.getElementById('infoCorrelativo').textContent = correlativo;
+    try {
+        const raw = localStorage.getItem(getDataKey());
+        const bytes = raw ? new Blob([raw]).size : 0;
+        let espacio = bytes + ' B';
+        if (bytes > 1024 * 1024) espacio = (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        else if (bytes > 1024) espacio = (bytes / 1024).toFixed(2) + ' KB';
+        document.getElementById('infoEspacio').textContent = espacio;
+    } catch (e) { document.getElementById('infoEspacio').textContent = '--'; }
+}
+
+function calcularBalance317() {
+    const tbody = document.getElementById('cuerpoBalance317');
+    tbody.innerHTML = "";
+    const saldos = obtenerSaldos();
+    let totalDeudor = 0, totalAcreedor = 0, totalDebe = 0, totalHaber = 0;
+    let totalBGDeudor = 0, totalBGAcreedor = 0, totalPerdidasNat = 0, totalGananciasNat = 0;
+
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+
+    cuentasLibro.forEach(cuenta => {
+        const s = saldos[cuenta.codigo];
+        if (!s) return;
+        if (s.debe === 0 && s.haber === 0) return;
+        const debe = s.debe, haber = s.haber;
+        const elem = cuenta.codigo.charAt(0);
+        let bgDeudor = 0, bgAcreedor = 0, pNat = 0, gNat = 0;
+        if (s.categoria317 === "BALANCE_GENERAL") { bgDeudor = debe; bgAcreedor = haber; }
+        else if (s.categoria317 === "RESULTADOS_NATURALEZA") {
+            if (elem === "7") { gNat = haber; pNat = debe; }
+            else { pNat = debe; gNat = haber; }
+        }
+        totalDeudor += debe; totalAcreedor += haber;
+        totalDebe += debe; totalHaber += haber;
+        totalBGDeudor += bgDeudor; totalBGAcreedor += bgAcreedor;
+        totalPerdidasNat += pNat; totalGananciasNat += gNat;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-family:monospace; font-weight:700;">${cuenta.codigo}</td><td>${cuenta.nombre}</td>
+            <td>-</td><td>-</td>
+            <td class="num">${debe > 0 ? debe.toFixed(2) : '-'}</td>
+            <td class="num">${haber > 0 ? haber.toFixed(2) : '-'}</td>
+            <td class="num">${debe > 0 ? debe.toFixed(2) : '-'}</td>
+            <td class="num">${haber > 0 ? haber.toFixed(2) : '-'}</td>
+            <td class="num">${bgDeudor > 0 ? bgDeudor.toFixed(2) : '-'}</td>
+            <td class="num">${bgAcreedor > 0 ? bgAcreedor.toFixed(2) : '-'}</td>
+            <td class="num">${pNat > 0 ? pNat.toFixed(2) : '-'}</td>
+            <td class="num">${gNat > 0 ? gNat.toFixed(2) : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const difBG = totalBGDeudor - totalBGAcreedor;
+    const difRN = totalPerdidasNat - totalGananciasNat;
+
+    const trTotal = document.createElement('tr');
+    trTotal.innerHTML = `
+        <td colspan="2" style="text-align:right; background:#fff4ce; font-weight:700;">TOTALES</td>
+        <td style="background:#fff4ce; text-align:center;">-</td>
+        <td style="background:#fff4ce; text-align:center;">-</td>
+        <td class="num total">${totalDebe.toFixed(2)}</td>
+        <td class="num total">${totalHaber.toFixed(2)}</td>
+        <td class="num total">${totalDeudor.toFixed(2)}</td>
+        <td class="num total">${totalAcreedor.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalBGDeudor.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalBGAcreedor.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalPerdidasNat.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalGananciasNat.toFixed(2)}</td>
+    `;
+    tbody.appendChild(trTotal);
+
+    const trDif = document.createElement('tr');
+    trDif.innerHTML = `
+        <td colspan="2" style="text-align:right; background:#e6f4ea; font-weight:700; color:#185c37;">DIFERENCIA (Total Deudor − Total Acreedor | Total Pérdidas − Total Ganancias)</td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td class="num total" style="text-align:center; background:#e6f4ea; font-weight:700; ${difBG >= 0 ? 'color:#107c10;' : 'color:#a80000;'}">${difBG >= 0 ? difBG.toFixed(2) : Math.abs(difBG).toFixed(2)}${difBG >= 0 ? ' (D)' : ' (A)'}</td>
+        <td style="background:#e6f4ea;"></td>
+        <td class="num total" style="text-align:center; background:#e6f4ea; font-weight:700; ${difRN >= 0 ? 'color:#a80000;' : 'color:#107c10;'}">${difRN >= 0 ? difRN.toFixed(2) : Math.abs(difRN).toFixed(2)}${difRN >= 0 ? ' (P)' : ' (G)'}</td>
+        <td style="background:#e6f4ea;"></td>
+    `;
+    tbody.appendChild(trDif);
+}
+
+function calcularESF() {
+    const tbody = document.getElementById('cuerpoESF');
+    tbody.innerHTML = "";
+    const saldos = obtenerSaldos();
+    const activoCorriente = [], activoNoCorriente = [], pasivoCorriente = [], pasivoNoCorriente = [], patrimonio = [];
+    let tAC = 0, tANC = 0, tPC = 0, tPNC = 0, tPat = 0, tIng = 0, tGas = 0;
+    catalogoCuentas.forEach(cuenta => {
+        const s = saldos[cuenta.codigo];
+        if (!s || cuenta.excluir317) return;
+        const debe = s.debe, haber = s.haber;
+        if (debe === 0 && haber === 0) return;
+        const elem = cuenta.codigo.charAt(0);
+        const saldoNeto = debe - haber;
+        if (["1", "2", "3"].includes(elem)) {
+            if (elem === "3") { activoNoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: saldoNeto }); tANC += saldoNeto; }
+            else { activoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: saldoNeto }); tAC += saldoNeto; }
+        } else if (elem === "4") {
+            const mp = haber - debe;
+            if (cuenta.codigo.substring(0, 2) === "49") { pasivoNoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: mp }); tPNC += mp; }
+            else { pasivoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: mp }); tPC += mp; }
+        } else if (elem === "5") {
+            patrimonio.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: haber - debe }); tPat += (haber - debe);
+        } else if (elem === "7") tIng += haber - debe;
+        else if (elem === "6") tGas += debe - haber;
+    });
+    tPat += (tIng - tGas);
+    const trH = document.createElement('tr');
+    trH.innerHTML = `<td style="background:#217346; color:white; font-weight:700;">ACTIVO</td><td style="background:#217346; color:white;"></td><td style="background:#217346; color:white; font-weight:700;">PASIVO Y PATRIMONIO</td><td style="background:#217346; color:white;"></td>`;
+    tbody.appendChild(trH);
+    const trAC = document.createElement('tr');
+    trAC.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">ACTIVO CORRIENTE</td><td colspan="2" style="background:#e6f4ea; font-weight:700;">PASIVO CORRIENTE</td>`;
+    tbody.appendChild(trAC);
+    const maxC = Math.max(activoCorriente.length, pasivoCorriente.length);
+    for (let i = 0; i < maxC; i++) {
+        const tr = document.createElement('tr');
+        const a = activoCorriente[i], p = pasivoCorriente[i];
+        tr.innerHTML = `<td style="padding-left:20px;">${a ? a.codigo + ' ' + a.nombre : ''}</td><td class="num">${a ? a.monto.toFixed(2) : ''}</td><td style="padding-left:20px;">${p ? p.codigo + ' ' + p.nombre : ''}</td><td class="num">${p ? p.monto.toFixed(2) : ''}</td>`;
+        tbody.appendChild(tr);
+    }
+    const trTAC = document.createElement('tr');
+    trTAC.innerHTML = `<td class="total">TOTAL ACTIVO CORRIENTE</td><td class="num total">${tAC.toFixed(2)}</td><td class="total">TOTAL PASIVO CORRIENTE</td><td class="num total">${tPC.toFixed(2)}</td>`;
+    tbody.appendChild(trTAC);
+    const trANC = document.createElement('tr');
+    trANC.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">ACTIVO NO CORRIENTE</td><td colspan="2" style="background:#e6f4ea; font-weight:700;">PASIVO NO CORRIENTE</td>`;
+    tbody.appendChild(trANC);
+    const maxNC = Math.max(activoNoCorriente.length, pasivoNoCorriente.length);
+    for (let i = 0; i < maxNC; i++) {
+        const tr = document.createElement('tr');
+        const a = activoNoCorriente[i], p = pasivoNoCorriente[i];
+        tr.innerHTML = `<td style="padding-left:20px;">${a ? a.codigo + ' ' + a.nombre : ''}</td><td class="num">${a ? a.monto.toFixed(2) : ''}</td><td style="padding-left:20px;">${p ? p.codigo + ' ' + p.nombre : ''}</td><td class="num">${p ? p.monto.toFixed(2) : ''}</td>`;
+        tbody.appendChild(tr);
+    }
+    const trTANC = document.createElement('tr');
+    trTANC.innerHTML = `<td class="total">TOTAL ACTIVO NO CORRIENTE</td><td class="num total">${tANC.toFixed(2)}</td><td class="total">TOTAL PASIVO NO CORRIENTE</td><td class="num total">${tPNC.toFixed(2)}</td>`;
+    tbody.appendChild(trTANC);
+    const tA = tAC + tANC, tP = tPC + tPNC;
+    const trTA = document.createElement('tr');
+    trTA.innerHTML = `<td class="total-strong">TOTAL ACTIVO</td><td class="num total-strong">${tA.toFixed(2)}</td><td class="total-strong">TOTAL PASIVO</td><td class="num total-strong">${tP.toFixed(2)}</td>`;
+    tbody.appendChild(trTA);
+    const trP = document.createElement('tr');
+    trP.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">PATRIMONIO</td><td colspan="2" style="background:#e6f4ea;"></td>`;
+    tbody.appendChild(trP);
+    patrimonio.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td></td><td></td><td style="padding-left:20px;">${p.codigo} ${p.nombre}</td><td class="num">${p.monto.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+    });
+    const trTP = document.createElement('tr');
+    trTP.innerHTML = `<td class="total">TOTAL PATRIMONIO</td><td class="num total">${tPat.toFixed(2)}</td><td class="total">TOTAL PATRIMONIO</td><td class="num total">${tPat.toFixed(2)}</td>`;
+    tbody.appendChild(trTP);
+    const trTF = document.createElement('tr');
+    trTF.innerHTML = `<td class="total-strong">TOTAL ACTIVO</td><td class="num total-strong">${tA.toFixed(2)}</td><td class="total-strong">TOTAL PASIVO Y PATRIMONIO</td><td class="num total-strong">${(tP + tPat).toFixed(2)}</td>`;
+    tbody.appendChild(trTF);
+}
+
+function calcularER() {
+    const tbody = document.getElementById('cuerpoER');
+    tbody.innerHTML = "";
+    const saldos = obtenerSaldos();
+    let tIng = 0, tGas = 0;
+    const dIng = [], dGas = [];
+    catalogoCuentas.forEach(cuenta => {
+        const s = saldos[cuenta.codigo];
+        if (!s || cuenta.excluir317) return;
+        const debe = s.debe, haber = s.haber;
+        if (debe === 0 && haber === 0) return;
+        const elem = cuenta.codigo.charAt(0);
+        if (elem === "7") { const m = haber - debe; if (m !== 0) { dIng.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: m }); tIng += m; } }
+        else if (elem === "6") { const m = debe - haber; if (m !== 0) { dGas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: m }); tGas += m; } }
+    });
+    const trI = document.createElement('tr');
+    trI.innerHTML = `<td colspan="2" style="background:#217346; color:white; font-weight:700;">INGRESOS</td>`;
+    tbody.appendChild(trI);
+    dIng.forEach(i => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="padding-left:20px;">${i.codigo} ${i.nombre}</td><td class="num">${i.monto.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+    });
+    const trTI = document.createElement('tr');
+    trTI.innerHTML = `<td class="total" style="text-align:right;">TOTAL INGRESOS</td><td class="num total">${tIng.toFixed(2)}</td>`;
+    tbody.appendChild(trTI);
+    const trG = document.createElement('tr');
+    trG.innerHTML = `<td colspan="2" style="background:#c0504d; color:white; font-weight:700;">GASTOS</td>`;
+    tbody.appendChild(trG);
+    dGas.forEach(g => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="padding-left:20px;">${g.codigo} ${g.nombre}</td><td class="num">${g.monto.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+    });
+    const trTG = document.createElement('tr');
+    trTG.innerHTML = `<td class="total" style="text-align:right;">TOTAL GASTOS</td><td class="num total">${tGas.toFixed(2)}</td>`;
+    tbody.appendChild(trTG);
+    const res = tIng - tGas;
+    const esU = res >= 0;
+    const trR = document.createElement('tr');
+    trR.innerHTML = `<td class="${esU ? 'utilidad' : 'total'}">${esU ? 'UTILIDAD' : 'PÉRDIDA'} DEL EJERCICIO</td><td class="num ${esU ? 'utilidad' : 'total'}">${Math.abs(res).toFixed(2)}</td>`;
+    tbody.appendChild(trR);
+}
+
+function renderizarPCGE() {
+    const tbody = document.getElementById('cuerpoPCGE');
+    tbody.innerHTML = "";
+    const filtro = (document.getElementById('txtBuscarPCGE')?.value || "").toLowerCase();
+    const filtroElem = document.getElementById('filtroElementoPCGE')?.value || "";
+    let contador = 0;
+    catalogoCuentas.forEach(cuenta => {
+        if (filtro && !cuenta.codigo.toLowerCase().includes(filtro) && !cuenta.nombre.toLowerCase().includes(filtro)) return;
+        if (filtroElem && cuenta.elemento !== filtroElem) return;
+        contador++;
+        let bg = '';
+        if (cuenta.codigo.length <= 2) bg = 'background:#fff4ce; font-weight:700;';
+        else if (cuenta.codigo.length <= 4) bg = 'background:#e6f4ea;';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-family:monospace; font-weight:700; ${bg}">${cuenta.codigo}</td>
+            <td style="${bg}">${cuenta.nombre}</td>
+            <td style="text-align:center; ${bg}">${cuenta.elemento}</td>
+            <td style="text-align:center; ${bg}">${cuenta.tipo}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    const contEl = document.getElementById('pcgeContador');
+    if (contEl) contEl.textContent = contador;
+}
+
+function filtrarPCGE() { renderizarPCGE(); }
+
+window.onload = async function() {
+    log('Iniciando...');
+    await cargarDatosDelServidor();
+    const sessionUser = sessionStorage.getItem(SESSION_KEY);
+    if (sessionUser) {
+        const user = usuariosCache[sessionUser];
+        if (user && user.activo) {
+            usuarioActual = user;
+            abrirApp();
+            return;
+        }
+    }
+    document.getElementById('loginUser').focus();
+};
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !document.getElementById('authScreen').classList.contains('hidden')) {
+        iniciarSesion();
+    }
+});
+</script>
+</body>
+</html>
