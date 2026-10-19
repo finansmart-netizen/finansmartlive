@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify
 from groq import Groq
+from pcge_data import PCGE_DICCIONARIO # Importamos la base de datos
 
 app = Flask(__name__)
 
@@ -16,18 +17,20 @@ def clasificar():
     if not descripcion:
         return jsonify({"error": "Falta la descripción"}), 400
 
-    # Conexión a Groq
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         return jsonify({"cuenta": "2011", "fuente": "Error: Falta API KEY en Render"})
 
     client = Groq(api_key=api_key)
     
+    # Le pasamos la base de datos estructurada a la IA
     prompt = f"""
-    Eres un contador peruano experto en el PCGE. Clasifica esta factura.
-    Opciones válidas: 2011 (Mercaderías), 241 (Materias primas), 251 (Envases), 6311 (Transporte), 6561 (Combustible), 6361 (Luz).
-    Factura: {descripcion}
-    Responde ÚNICAMENTE con el código numérico de 4 dígitos. Sin explicaciones.
+    Eres un contador peruano experto en el PCGE. 
+    Tienes la siguiente base de datos de cuentas contables jerarquizada:
+    {PCGE_DICCIONARIO}
+
+    Clasifica esta factura: "{descripcion}"
+    Responde ÚNICAMENTE con el código numérico de la cuenta (4 o 5 dígitos) que mejor se adapte. Sin explicaciones.
     """
     
     try:
@@ -36,14 +39,15 @@ def clasificar():
             messages=[{"role": "user", "content": prompt}]
         )
         cuenta_ia = completion.choices[0].message.content.strip()
+        # Limpiar para que solo devuelva números
         cuenta_ia = ''.join(filter(str.isdigit, cuenta_ia)) 
         
         return jsonify({
             "cuenta": cuenta_ia,
-            "fuente": "Inteligencia Artificial (Groq)"
+            "fuente": "IA (Groq) + Base de Datos PCGE Completa"
         })
     except Exception as e:
-        return jsonify({"error": f"Error con la IA: {e}"}), 500
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
