@@ -1722,19 +1722,86 @@ function renderizarPCGE() {
 
 function filtrarPCGE() { renderizarPCGE(); }
 
-window.onload = async function() {
-    log('Iniciando...');
-    await cargarDatosDelServidor();
-    const sessionUser = sessionStorage.getItem(SESSION_KEY);
-    if (sessionUser) {
-        const user = usuariosCache[sessionUser];
-        if (user && user.activo) {
-            usuarioActual = user;
-            abrirApp();
-            return;
-        }
+// ==========================================
+// INICIO DE SESIÓN Y ARRANQUE
+// ==========================================
+function iniciarSesion() {
+    const username = document.getElementById('loginUser').value.trim().toLowerCase();
+    const pass = document.getElementById('loginPass').value;
+    if (!username || !pass) { mostrarError('Completa usuario y contraseña'); return; }
+    
+    // Como no tenemos backend real de usuarios, usamos el caché local.
+    // Si el caché está vacío, creamos el admin por defecto.
+    if (Object.keys(usuariosCache).length === 0) {
+        usuariosCache['admin'] = {
+            username: 'admin', nombre: 'Administrador',
+            pass: hashPassword('admin123'), rol: 'admin',
+            activo: true, tema: 'futurista',
+            creado: new Date().toISOString()
+        };
     }
-    document.getElementById('loginUser').focus();
+
+    const user = usuariosCache[username];
+    if (!user) { mostrarError('Usuario no encontrado. Disponibles: ' + Object.keys(usuariosCache).join(', ')); return; }
+    if (!user.activo) { mostrarError('Cuenta desactivada'); return; }
+    if (user.pass !== hashPassword(pass)) { mostrarError('Contraseña incorrecta'); return; }
+    usuarioActual = user;
+    sessionStorage.setItem(SESSION_KEY, username);
+    abrirApp();
+}
+
+function abrirApp() {
+    document.getElementById('userAvatar').textContent = usuarioActual.nombre.charAt(0).toUpperCase();
+    document.getElementById('userNameDisplay').textContent = usuarioActual.nombre;
+    const esAdmin = usuarioActual.rol === 'admin';
+    if (esAdmin) {
+        document.getElementById('userRoleDisplay').textContent = '● ADMIN';
+        document.getElementById('menuUsuarios').classList.add('visible');
+        document.getElementById('tabUsuarios').classList.add('visible');
+        document.getElementById('tabUsuariosBajo').classList.add('visible');
+        document.getElementById('btnEliminarPlantilla').classList.add('admin-visible');
+        document.getElementById('configSubtitle').textContent = 'Configuración global (admin)';
+    } else {
+        document.getElementById('userRoleDisplay').textContent = '● USUARIO';
+        document.getElementById('configReadOnly').style.display = 'block';
+        document.getElementById('configPanel').style.display = 'none';
+        document.getElementById('configSubtitle').textContent = 'Solo lectura';
+    }
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('appMain').classList.remove('hidden');
+    inicializarLibroDiario();
+    inicializarFechaOperacion();
+    lineasConfigTemp = [
+        { codigo: "", desc: "", tipo: "debe", valor: "total" },
+        { codigo: "", desc: "", tipo: "haber", valor: "base" },
+        { codigo: "", desc: "", tipo: "haber", valor: "igv" }
+    ];
+    renderizarTablaConfig();
+    renderizarPCGE();
+    document.getElementById('fechaDashboard').textContent = new Date().toLocaleDateString('es-PE');
+    document.getElementById('fechaESF').textContent = new Date().toLocaleDateString('es-PE');
+    document.getElementById('anioER').textContent = new Date().getFullYear();
+    cargarEstado();
+    calcularDashboard();
+    cargarComboBoxPlantillas();
+    cargarContextoIA();
+}
+
+window.onload = function() {
+    // Como no hay backend real, iniciamos directo con el admin.
+    // Si quieres forzar el login, cambia esto para que no llame a abrirApp().
+    usuariosCache['admin'] = {
+        username: 'admin', nombre: 'Administrador',
+        pass: hashPassword('admin123'), rol: 'admin',
+        activo: true, tema: 'futurista',
+        creado: new Date().toISOString()
+    };
+    plantillasCache = plantillasPorDefecto();
+    
+    // Iniciar sesión automático para pruebas:
+    usuarioActual = usuariosCache['admin'];
+    sessionStorage.setItem(SESSION_KEY, 'admin');
+    abrirApp();
 };
 
 document.addEventListener('keydown', function(e) {
