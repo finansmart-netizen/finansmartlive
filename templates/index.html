@@ -1802,6 +1802,53 @@ window.onload = function() {
     usuarioActual = usuariosCache['admin'];
     sessionStorage.setItem(SESSION_KEY, 'admin');
     abrirApp();
+    // ==========================================
+// FUNCIONES FALTANTES (PARCHE)
+// ==========================================
+function hashPassword(pass) {
+    let hash = 0;
+    for (let i = 0; i < pass.length; i++) {
+        const char = pass.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return 'h_' + Math.abs(hash).toString(36);
+}
+
+async function leerDatos() {
+    try {
+        const res = await fetch(API_URL + '?t=' + Date.now());
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    } catch (e) {
+        console.error('GET falló:', e);
+        return null;
+    }
+}
+
+async function escribirDatos(datos) {
+    try {
+        const res = await fetch(API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(datos)
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return true;
+    } catch (e) {
+        console.error('PUT falló:', e);
+        return false;
+    }
+}
+
+async function guardarTodoEnServidor() {
+    return await escribirDatos({
+        plantillas: plantillasCache,
+        usuarios: usuariosCache,
+        version: 2,
+        timestamp: new Date().toISOString()
+    });
+}
 };
 
 document.addEventListener('keydown', function(e) {
