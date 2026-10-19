@@ -1859,3 +1859,746 @@ document.addEventListener('keydown', function(e) {
 </script>
 </body>
 </html>
+const catalogoCuentas = PCGE_RAW.map(item => {
+    const [codigo, nombre, elemento, tipo] = item;
+    let naturaleza = "deudora", grupo = "ACTIVOS";
+    if (tipo === "P") { naturaleza = "acreedora"; grupo = "PASIVOS"; }
+    else if (tipo === "PT") { naturaleza = "acreedora"; grupo = "PATRIMONIO"; }
+    else if (tipo === "G") { naturaleza = "deudora"; grupo = "GASTOS"; }
+    else if (tipo === "I") { naturaleza = "acreedora"; grupo = "INGRESOS"; }
+    else if (tipo === "O") { naturaleza = "deudora"; grupo = "CUENTAS DE ORDEN"; }
+    const primerDigito = codigo.charAt(0);
+    const primerosDos = codigo.substring(0, 2);
+    let categoria317 = "NINGUNA", excluir317 = false;
+    if (primerosDos === "79" || codigo === "79") { excluir317 = true; categoria317 = "EXCLUIDA"; }
+    else if (["1", "2", "3", "4", "5"].includes(primerDigito)) { categoria317 = "BALANCE_GENERAL"; }
+    else if (primerDigito === "6" || primerDigito === "7") { categoria317 = "RESULTADOS_NATURALEZA"; }
+    else if (primerDigito === "9") { categoria317 = "RESULTADOS_FUNCION"; }
+    else if (primerDigito === "8") { categoria317 = "GESTION"; excluir317 = true; }
+    else if (primerDigito === "0") { categoria317 = "ORDEN"; excluir317 = true; }
+    return { codigo, nombre, grupo, naturaleza, elemento, tipo, categoria317, excluir317 };
+});
+
+// ==========================================
+// FIN DE LA DEFINICIÓN DE DATOS
+// ==========================================
+
+function inicializarLibroDiario() {
+    const filaGrupos = document.getElementById('filaGrupos');
+    const filaCabecera = document.getElementById('filaCabeceraCuentas');
+    filaGrupos.innerHTML = '<th colspan="5" style="background:#217346; color:white;">DATOS GENERALES</th>';
+    filaCabecera.innerHTML = `<th>N°</th><th>Fecha</th><th>Glosa</th><th>Doc.</th><th style="width:40px;">✕</th>`;
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    const grupos = {};
+    cuentasLibro.forEach(c => {
+        if (!grupos[c.grupo]) grupos[c.grupo] = [];
+        grupos[c.grupo].push(c);
+    });
+    const colores = { "ACTIVOS": "#217346", "PASIVOS": "#c0504d", "PATRIMONIO": "#7b1fa2", "GASTOS": "#e65100", "INGRESOS": "#0078d4" };
+    for (const nombreGrupo in grupos) {
+        const cuentasGrupo = grupos[nombreGrupo];
+        const thGrupo = document.createElement('th');
+        thGrupo.colSpan = cuentasGrupo.length;
+        thGrupo.style.background = colores[nombreGrupo] || "#217346";
+        thGrupo.style.color = "white";
+        thGrupo.textContent = nombreGrupo;
+        filaGrupos.appendChild(thGrupo);
+        cuentasGrupo.forEach(cuenta => {
+            const th = document.createElement('th');
+            th.textContent = cuenta.codigo;
+            filaCabecera.appendChild(th);
+        });
+    }
+    const thAccion = document.createElement('th');
+    thAccion.style.background = "#217346";
+    thAccion.style.color = "white";
+    thAccion.textContent = '✕';
+    filaCabecera.appendChild(thAccion);
+}
+
+function cargarComboBoxPlantillas() {
+    const cbo = document.getElementById('cboTipo');
+    if (!cbo) return;
+    const valorActual = cbo.value;
+    cbo.innerHTML = '<option value="" disabled selected>-- Seleccione una plantilla --</option>';
+    for (const key in plantillasCache) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = plantillasCache[key].nombre;
+        cbo.appendChild(option);
+    }
+    if (valorActual && plantillasCache[valorActual]) cbo.value = valorActual;
+}
+
+function recalcularDesde(campoEditado) {
+    const base = document.getElementById('txtBase');
+    const igv = document.getElementById('txtIGV');
+    const total = document.getElementById('txtTotal');
+    const TASA_IGV = 0.18;
+    if (campoEditado === 'base') {
+        const b = parseFloat(base.value);
+        if (isNaN(b) || base.value.trim() === "") { vBase = vIGV = vTotal = 0; igv.value = ""; total.value = ""; }
+        else { vBase = b; vIGV = Math.round(b * TASA_IGV * 100) / 100; vTotal = b + vIGV; igv.value = vIGV.toFixed(2); total.value = vTotal.toFixed(2); }
+    } else if (campoEditado === 'igv') {
+        const i = parseFloat(igv.value);
+        if (isNaN(i) || igv.value.trim() === "") {
+            if (base.value.trim() !== "" && !isNaN(parseFloat(base.value))) {
+                const b = parseFloat(base.value); vBase = b; vIGV = Math.round(b * TASA_IGV * 100) / 100; vTotal = b + vIGV;
+                igv.value = vIGV.toFixed(2); total.value = vTotal.toFixed(2);
+            } else { vBase = vIGV = vTotal = 0; total.value = ""; }
+        } else { vIGV = i; vBase = Math.round((i / TASA_IGV) * 100) / 100; vTotal = vBase + vIGV; base.value = vBase.toFixed(2); total.value = vTotal.toFixed(2); }
+    } else if (campoEditado === 'total') {
+        const t = parseFloat(total.value);
+        if (isNaN(t) || total.value.trim() === "") { vBase = vIGV = vTotal = 0; base.value = ""; igv.value = ""; }
+        else { vTotal = t; vBase = Math.round((t / (1 + TASA_IGV)) * 100) / 100; vIGV = Math.round((t - vBase) * 100) / 100; base.value = vBase.toFixed(2); igv.value = vIGV.toFixed(2); }
+    }
+    calcularYPrevisualizar();
+}
+
+function calcularYPrevisualizar() {
+    const tbody = document.querySelector('#tablaPreview tbody');
+    const tipo = document.getElementById('cboTipo').value;
+    if (!tipo || !plantillasCache[tipo]) { tbody.innerHTML = ''; return; }
+    if (vBase === 0 && vIGV === 0 && vTotal === 0) { tbody.innerHTML = ''; return; }
+    tbody.innerHTML = '';
+    plantillasCache[tipo].lineas.forEach(c => {
+        let monto = 0;
+        if (c.valor === 'base') monto = vBase;
+        else if (c.valor === 'igv') monto = vIGV;
+        else if (c.valor === 'total') monto = vTotal;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-weight:700; color:#217346;">${c.codigo}</td>
+            <td>${c.desc}</td>
+            <td class="num">${c.tipo === 'debe' ? monto.toFixed(2) : ''}</td>
+            <td class="num">${c.tipo === 'haber' ? monto.toFixed(2) : ''}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function insertarAsiento() {
+    const tipo = document.getElementById('cboTipo').value;
+    const factura = document.getElementById('txtFactura').value;
+    const glosaInput = document.getElementById('txtGlosa').value;
+    const fechaOperacion = document.getElementById('txtFechaOperacion').value;
+
+    if (tipo === "") { alert("Seleccione un tipo de operación"); return; }
+    if (factura === "") { alert("Ingrese el número de factura"); return; }
+    if (!fechaOperacion) { alert("Seleccione la fecha de operación"); return; }
+    if (vTotal === 0) { alert("Ingrese los montos"); return; }
+
+    const glosaFinal = glosaInput !== "" ? glosaInput.toUpperCase() : plantillasCache[tipo].nombre + " SEGUN FACTURA " + factura;
+    const fechaFormateada = formatearFecha(fechaOperacion);
+    const nroAsiento = correlativo++;
+
+    const acumulado = {};
+    plantillasCache[tipo].lineas.forEach(linea => {
+        let monto = 0;
+        if (linea.valor === 'base') monto = vBase;
+        else if (linea.valor === 'igv') monto = vIGV;
+        else if (linea.valor === 'total') monto = vTotal;
+        if (!acumulado[linea.codigo]) acumulado[linea.codigo] = { debe: 0, haber: 0 };
+        if (linea.tipo === 'debe') acumulado[linea.codigo].debe += monto;
+        else acumulado[linea.codigo].haber += monto;
+    });
+
+    const tbodyLibro = document.getElementById('cuerpoLibro');
+    const tr = document.createElement('tr');
+    tr.dataset.nro = nroAsiento;
+    tr.innerHTML = `<td>${nroAsiento}</td><td>${fechaFormateada}</td><td>${glosaFinal}</td><td>${factura}</td>`;
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    cuentasLibro.forEach(cuentaCatalogo => {
+        const td = document.createElement('td');
+        td.className = 'num';
+        const acc = acumulado[cuentaCatalogo.codigo];
+        if (acc && (acc.debe > 0 || acc.haber > 0)) {
+            td.setAttribute('data-debe', acc.debe.toFixed(2));
+            td.setAttribute('data-haber', acc.haber.toFixed(2));
+            if (acc.debe > 0 && acc.haber > 0) {
+                td.textContent = acc.debe.toFixed(2) + "/" + acc.haber.toFixed(2);
+            } else if (acc.debe > 0) {
+                td.textContent = acc.debe.toFixed(2);
+            } else {
+                td.textContent = "-" + acc.haber.toFixed(2);
+            }
+        }
+        tr.appendChild(td);
+    });
+    const tdAccion = document.createElement('td');
+    tdAccion.style.textAlign = 'center';
+    tdAccion.innerHTML = `<button class="btn-delete-row" onclick="eliminarAsiento(this)">✕</button>`;
+    tr.appendChild(tdAccion);
+    tbodyLibro.appendChild(tr);
+
+    alert(`Asiento N° ${nroAsiento} registrado el ${fechaFormateada}.`);
+    limpiarFormulario();
+    guardarEstado();
+    calcularDashboard();
+}
+
+function limpiarFormulario() {
+    document.getElementById('txtBase').value = "";
+    document.getElementById('txtIGV').value = "";
+    document.getElementById('txtTotal').value = "";
+    document.getElementById('txtFactura').value = "";
+    document.getElementById('txtGlosa').value = "";
+    document.querySelector('#tablaPreview tbody').innerHTML = "";
+    vBase = vIGV = vTotal = 0;
+    document.getElementById('cboTipo').selectedIndex = 0;
+    inicializarFechaOperacion();
+    const inputXML = document.getElementById('inputXML');
+    if (inputXML) inputXML.value = '';
+    const statusEl = document.getElementById('xmlStatus');
+    if (statusEl) { statusEl.textContent = 'Esperando archivo...'; statusEl.style.color = '#666'; }
+    const preview = document.getElementById('previewBox');
+    preview.classList.remove('visible');
+    preview.style.display = 'none';
+}
+
+function eliminarAsiento(btn) {
+    if (!confirm('¿Eliminar este asiento?')) return;
+    btn.closest('tr').remove();
+    guardarEstado();
+    calcularDashboard();
+}
+
+function guardarEstado() {
+    if (!usuarioActual) return;
+    localStorage.setItem(DATA_PREFIX + usuarioActual.username, JSON.stringify({
+        version: 3, timestamp: new Date().toISOString(),
+        correlativo: correlativo, asientos: obtenerAsientosDelDOM()
+    }));
+}
+
+function cargarEstado() {
+    if (!usuarioActual) return false;
+    try {
+        const raw = localStorage.getItem(DATA_PREFIX + usuarioActual.username);
+        if (!raw) return false;
+        const estado = JSON.parse(raw);
+        if (estado.correlativo) correlativo = estado.correlativo;
+        if (estado.asientos && estado.asientos.length > 0) restaurarAsientos(estado.asientos);
+        return true;
+    } catch (e) { return false; }
+}
+
+function obtenerAsientosDelDOM() {
+    const asientos = [];
+    const filas = document.querySelectorAll('#cuerpoLibro tr');
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        const asiento = {
+            nro: celdas[0].textContent,
+            fecha: celdas[1].textContent,
+            glosa: celdas[2].textContent,
+            factura: celdas[3].textContent,
+            cuentas: {}
+        };
+        for (let i = 4; i < celdas.length - 1; i++) {
+            const codigo = cuentasLibro[i - 4].codigo;
+            const td = celdas[i];
+            const dataDebe = parseFloat(td.getAttribute('data-debe')) || 0;
+            const dataHaber = parseFloat(td.getAttribute('data-haber')) || 0;
+            if (dataDebe > 0 || dataHaber > 0) {
+                asiento.cuentas[codigo] = { debe: dataDebe, haber: dataHaber };
+            }
+        }
+        asientos.push(asiento);
+    });
+    return asientos;
+}
+
+function restaurarAsientos(asientos) {
+    const tbodyLibro = document.getElementById('cuerpoLibro');
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    asientos.forEach(asiento => {
+        const tr = document.createElement('tr');
+        tr.dataset.nro = asiento.nro;
+        tr.innerHTML = `<td>${asiento.nro}</td><td>${asiento.fecha}</td><td>${asiento.glosa}</td><td>${asiento.factura}</td>`;
+        cuentasLibro.forEach(cuentaCatalogo => {
+            const td = document.createElement('td');
+            td.className = 'num';
+            const datos = asiento.cuentas[cuentaCatalogo.codigo];
+            if (datos) {
+                let debe = 0, haber = 0;
+                if (typeof datos === 'object') {
+                    debe = datos.debe || 0;
+                    haber = datos.haber || 0;
+                } else {
+                    const v = parseFloat(datos) || 0;
+                    if (v > 0) debe = v;
+                    else if (v < 0) haber = Math.abs(v);
+                }
+                td.setAttribute('data-debe', debe.toFixed(2));
+                td.setAttribute('data-haber', haber.toFixed(2));
+                if (debe > 0 && haber > 0) td.textContent = debe.toFixed(2) + "/" + haber.toFixed(2);
+                else if (debe > 0) td.textContent = debe.toFixed(2);
+                else if (haber > 0) td.textContent = "-" + haber.toFixed(2);
+            }
+            tr.appendChild(td);
+        });
+        const tdAccion = document.createElement('td');
+        tdAccion.style.textAlign = 'center';
+        tdAccion.innerHTML = `<button class="btn-delete-row" onclick="eliminarAsiento(this)">✕</button>`;
+        tr.appendChild(tdAccion);
+        tbodyLibro.appendChild(tr);
+    });
+}
+
+function calcularDashboard() {
+    const saldos = obtenerSaldos();
+    let dineroDisponible = 0;
+    catalogoCuentas.forEach(c => {
+        if (c.codigo.startsWith("101") || c.codigo.startsWith("104")) {
+            const s = saldos[c.codigo];
+            if (s) dineroDisponible += (s.debe - s.haber);
+        }
+    });
+    document.getElementById('kpiDinero').textContent = 'S/ ' + formatoNumero(dineroDisponible);
+
+    let totalIngresos = 0, totalGastos = 0;
+    catalogoCuentas.forEach(c => {
+        const s = saldos[c.codigo];
+        if (!s || c.codigo === "79" || c.excluir317) return;
+        const elem = c.codigo.charAt(0);
+        if (elem === "7") totalIngresos += (s.haber - s.debe);
+        else if (elem === "6") totalGastos += (s.debe - s.haber);
+    });
+    document.getElementById('kpiGanancia').textContent = 'S/ ' + formatoNumero(totalIngresos - totalGastos);
+
+    let porCobrar = 0, cuentasVencidas = 0;
+    catalogoCuentas.forEach(c => {
+        const primerosDos = c.codigo.substring(0, 2);
+        if (["12", "16", "17"].includes(primerosDos)) {
+            const s = saldos[c.codigo];
+            if (s) { const monto = s.debe - s.haber; if (monto > 0) { porCobrar += monto; cuentasVencidas++; } }
+        }
+    });
+    document.getElementById('kpiPorCobrar').textContent = 'S/ ' + formatoNumero(porCobrar);
+    document.getElementById('kpiPorCobrarPie').textContent = cuentasVencidas + ' cuentas';
+
+    let porPagar = 0;
+    catalogoCuentas.forEach(c => {
+        const primerosDos = c.codigo.substring(0, 2);
+        if (["40", "41", "42", "43", "44", "45", "46", "47"].includes(primerosDos)) {
+            const s = saldos[c.codigo];
+            if (s) { const monto = s.haber - s.debe; if (monto > 0) porPagar += monto; }
+        }
+    });
+    document.getElementById('kpiPorPagar').textContent = 'S/ ' + formatoNumero(porPagar);
+    if (dineroDisponible >= porPagar) {
+        document.getElementById('kpiPorPagarPie').textContent = 'Cubierto con caja';
+        document.getElementById('kpiPorPagarPie').style.color = '#107c10';
+    } else {
+        document.getElementById('kpiPorPagarPie').textContent = 'Faltan S/ ' + formatoNumero(porPagar - dineroDisponible);
+        document.getElementById('kpiPorPagarPie').style.color = '#a80000';
+    }
+
+    let ventas = 0, costoVentas = 0, gastosOperativos = 0;
+    catalogoCuentas.forEach(c => {
+        const s = saldos[c.codigo];
+        if (!s || c.codigo === "79" || c.excluir317) return;
+        const primerosDos = c.codigo.substring(0, 2);
+        const elem = c.codigo.charAt(0);
+        if (primerosDos === "70") ventas += (s.haber - s.debe);
+        else if (primerosDos === "69") costoVentas += (s.debe - s.haber);
+        else if (elem === "6") gastosOperativos += (s.debe - s.haber);
+    });
+    document.getElementById('resVentas').textContent = formatoNumero(ventas);
+    document.getElementById('resCostoVentas').textContent = formatoNumero(costoVentas);
+    document.getElementById('resGastos').textContent = formatoNumero(gastosOperativos);
+    document.getElementById('resGanancia').textContent = formatoNumero(ventas - costoVentas - gastosOperativos);
+
+    let catPersonal = 0, catCompras = 0, catServicios = 0, catOtros = 0;
+    catalogoCuentas.forEach(c => {
+        const s = saldos[c.codigo];
+        if (!s || c.excluir317 || c.codigo.charAt(0) !== "6") return;
+        const primerosDos = c.codigo.substring(0, 2);
+        const monto = s.debe - s.haber;
+        if (monto <= 0) return;
+        if (primerosDos === "62") catPersonal += monto;
+        else if (["60", "69"].includes(primerosDos)) catCompras += monto;
+        else if (primerosDos === "63") catServicios += monto;
+        else catOtros += monto;
+    });
+    const totalGastosDona = catPersonal + catCompras + catServicios + catOtros;
+    const donaChart = document.getElementById('donaChart');
+    const legend = document.getElementById('donaLegend');
+    if (totalGastosDona === 0) {
+        donaChart.style.background = 'conic-gradient(#e0e0e0 0% 100%)';
+        legend.innerHTML = '<div style="color:#999; font-size:11px;">Sin datos</div>';
+    } else {
+        const colores = { personal: '#217346', compras: '#0078d4', servicios: '#ff8c00', otros: '#7b1fa2' };
+        const partes = [
+            { pct: (catPersonal / totalGastosDona) * 100, color: colores.personal },
+            { pct: (catCompras / totalGastosDona) * 100, color: colores.compras },
+            { pct: (catServicios / totalGastosDona) * 100, color: colores.servicios },
+            { pct: (catOtros / totalGastosDona) * 100, color: colores.otros }
+        ];
+        let acum = 0;
+        const paradas = [];
+        partes.forEach(p => { if (p.pct > 0) { paradas.push(`${p.color} ${acum}% ${acum + p.pct}%`); acum += p.pct; } });
+        donaChart.style.background = `conic-gradient(${paradas.join(', ')})`;
+        legend.innerHTML = [
+            { nombre: 'Personal', color: colores.personal },
+            { nombre: 'Compras', color: colores.compras },
+            { nombre: 'Servicios', color: colores.servicios },
+            { nombre: 'Otros', color: colores.otros }
+        ].map(i => `<div class="item"><div class="dot" style="background-color: ${i.color};"></div><span>${i.nombre}</span></div>`).join('');
+    }
+}
+
+function formatoNumero(num) { return num.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+function obtenerSaldos() {
+    const saldos = {};
+    catalogoCuentas.forEach(c => {
+        saldos[c.codigo] = { debe: 0, haber: 0, nombre: c.nombre, grupo: c.grupo, categoria317: c.categoria317, excluir317: c.excluir317 };
+    });
+    const filas = document.querySelectorAll('#cuerpoLibro tr');
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        for (let i = 4; i < celdas.length - 1; i++) {
+            const codigoCuenta = cuentasLibro[i - 4].codigo;
+            const td = celdas[i];
+            const dataDebe = parseFloat(td.getAttribute('data-debe'));
+            const dataHaber = parseFloat(td.getAttribute('data-haber'));
+            if (!isNaN(dataDebe) || !isNaN(dataHaber)) {
+                saldos[codigoCuenta].debe += dataDebe || 0;
+                saldos[codigoCuenta].haber += dataHaber || 0;
+            }
+        }
+    });
+    return saldos;
+}
+
+function actualizarInfoDatos() {
+    if (!usuarioActual) return;
+    document.getElementById('infoUsuario').textContent = usuarioActual.username;
+    document.getElementById('infoCreado').textContent = new Date(usuarioActual.creado).toLocaleDateString('es-PE');
+    document.getElementById('infoAsientos').textContent = document.querySelectorAll('#cuerpoLibro tr').length;
+    let count = 0;
+    for (const key in plantillasCache) count++;
+    document.getElementById('infoPlantillas').textContent = count;
+    document.getElementById('infoCorrelativo').textContent = correlativo;
+    try {
+        const raw = localStorage.getItem(DATA_PREFIX + usuarioActual.username);
+        const bytes = raw ? new Blob([raw]).size : 0;
+        let espacio = bytes + ' B';
+        if (bytes > 1024 * 1024) espacio = (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        else if (bytes > 1024) espacio = (bytes / 1024).toFixed(2) + ' KB';
+        document.getElementById('infoEspacio').textContent = espacio;
+    } catch (e) { document.getElementById('infoEspacio').textContent = '--'; }
+}
+
+function calcularBalance317() {
+    const tbody = document.getElementById('cuerpoBalance317');
+    tbody.innerHTML = "";
+    const saldos = obtenerSaldos();
+    let totalDeudor = 0, totalAcreedor = 0, totalDebe = 0, totalHaber = 0;
+    let totalBGDeudor = 0, totalBGAcreedor = 0, totalPerdidasNat = 0, totalGananciasNat = 0;
+
+    const cuentasLibro = catalogoCuentas.filter(c => c.codigo.length <= 5 && !c.excluir317);
+
+    cuentasLibro.forEach(cuenta => {
+        const s = saldos[cuenta.codigo];
+        if (!s) return;
+        if (s.debe === 0 && s.haber === 0) return;
+        const debe = s.debe, haber = s.haber;
+        const elem = cuenta.codigo.charAt(0);
+        let bgDeudor = 0, bgAcreedor = 0, pNat = 0, gNat = 0;
+        if (s.categoria317 === "BALANCE_GENERAL") { bgDeudor = debe; bgAcreedor = haber; }
+        else if (s.categoria317 === "RESULTADOS_NATURALEZA") {
+            if (elem === "7") { gNat = haber; pNat = debe; }
+            else { pNat = debe; gNat = haber; }
+        }
+        totalDeudor += debe; totalAcreedor += haber;
+        totalDebe += debe; totalHaber += haber;
+        totalBGDeudor += bgDeudor; totalBGAcreedor += bgAcreedor;
+        totalPerdidasNat += pNat; totalGananciasNat += gNat;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-family:monospace; font-weight:700;">${cuenta.codigo}</td><td>${cuenta.nombre}</td>
+            <td>-</td><td>-</td>
+            <td class="num">${debe > 0 ? debe.toFixed(2) : '-'}</td>
+            <td class="num">${haber > 0 ? haber.toFixed(2) : '-'}</td>
+            <td class="num">${debe > 0 ? debe.toFixed(2) : '-'}</td>
+            <td class="num">${haber > 0 ? haber.toFixed(2) : '-'}</td>
+            <td class="num">${bgDeudor > 0 ? bgDeudor.toFixed(2) : '-'}</td>
+            <td class="num">${bgAcreedor > 0 ? bgAcreedor.toFixed(2) : '-'}</td>
+            <td class="num">${pNat > 0 ? pNat.toFixed(2) : '-'}</td>
+            <td class="num">${gNat > 0 ? gNat.toFixed(2) : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    const difBG = totalBGDeudor - totalBGAcreedor;
+    const difRN = totalPerdidasNat - totalGananciasNat;
+
+    const trTotal = document.createElement('tr');
+    trTotal.innerHTML = `
+        <td colspan="2" style="text-align:right; background:#fff4ce; font-weight:700;">TOTALES</td>
+        <td style="background:#fff4ce; text-align:center;">-</td>
+        <td style="background:#fff4ce; text-align:center;">-</td>
+        <td class="num total">${totalDebe.toFixed(2)}</td>
+        <td class="num total">${totalHaber.toFixed(2)}</td>
+        <td class="num total">${totalDeudor.toFixed(2)}</td>
+        <td class="num total">${totalAcreedor.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalBGDeudor.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalBGAcreedor.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalPerdidasNat.toFixed(2)}</td>
+        <td class="num total" style="text-align:right;">${totalGananciasNat.toFixed(2)}</td>
+    `;
+    tbody.appendChild(trTotal);
+
+    const trDif = document.createElement('tr');
+    trDif.innerHTML = `
+        <td colspan="2" style="text-align:right; background:#e6f4ea; font-weight:700; color:#185c37;">DIFERENCIA (Total Deudor − Total Acreedor | Total Pérdidas − Total Ganancias)</td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td style="background:#e6f4ea;"></td>
+        <td class="num total" style="text-align:center; background:#e6f4ea; font-weight:700; ${difBG >= 0 ? 'color:#107c10;' : 'color:#a80000;'}">${difBG >= 0 ? difBG.toFixed(2) : Math.abs(difBG).toFixed(2)}${difBG >= 0 ? ' (D)' : ' (A)'}</td>
+        <td style="background:#e6f4ea;"></td>
+        <td class="num total" style="text-align:center; background:#e6f4ea; font-weight:700; ${difRN >= 0 ? 'color:#a80000;' : 'color:#107c10;'}">${difRN >= 0 ? difRN.toFixed(2) : Math.abs(difRN).toFixed(2)}${difRN >= 0 ? ' (P)' : ' (G)'}</td>
+        <td style="background:#e6f4ea;"></td>
+    `;
+    tbody.appendChild(trDif);
+}
+
+function calcularESF() {
+    const tbody = document.getElementById('cuerpoESF');
+    tbody.innerHTML = "";
+    const saldos = obtenerSaldos();
+    const activoCorriente = [], activoNoCorriente = [], pasivoCorriente = [], pasivoNoCorriente = [], patrimonio = [];
+    let tAC = 0, tANC = 0, tPC = 0, tPNC = 0, tPat = 0, tIng = 0, tGas = 0;
+    catalogoCuentas.forEach(cuenta => {
+        const s = saldos[cuenta.codigo];
+        if (!s || cuenta.excluir317) return;
+        const debe = s.debe, haber = s.haber;
+        if (debe === 0 && haber === 0) return;
+        const elem = cuenta.codigo.charAt(0);
+        const saldoNeto = debe - haber;
+        if (["1", "2", "3"].includes(elem)) {
+            if (elem === "3") { activoNoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: saldoNeto }); tANC += saldoNeto; }
+            else { activoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: saldoNeto }); tAC += saldoNeto; }
+        } else if (elem === "4") {
+            const mp = haber - debe;
+            if (cuenta.codigo.substring(0, 2) === "49") { pasivoNoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: mp }); tPNC += mp; }
+            else { pasivoCorriente.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: mp }); tPC += mp; }
+        } else if (elem === "5") {
+            patrimonio.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: haber - debe }); tPat += (haber - debe);
+        } else if (elem === "7") tIng += haber - debe;
+        else if (elem === "6") tGas += debe - haber;
+    });
+    tPat += (tIng - tGas);
+    const trH = document.createElement('tr');
+    trH.innerHTML = `<td style="background:#217346; color:white; font-weight:700;">ACTIVO</td><td style="background:#217346; color:white;"></td><td style="background:#217346; color:white; font-weight:700;">PASIVO Y PATRIMONIO</td><td style="background:#217346; color:white;"></td>`;
+    tbody.appendChild(trH);
+    const trAC = document.createElement('tr');
+    trAC.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">ACTIVO CORRIENTE</td><td colspan="2" style="background:#e6f4ea; font-weight:700;">PASIVO CORRIENTE</td>`;
+    tbody.appendChild(trAC);
+    const maxC = Math.max(activoCorriente.length, pasivoCorriente.length);
+    for (let i = 0; i < maxC; i++) {
+        const tr = document.createElement('tr');
+        const a = activoCorriente[i], p = pasivoCorriente[i];
+        tr.innerHTML = `<td style="padding-left:20px;">${a ? a.codigo + ' ' + a.nombre : ''}</td><td class="num">${a ? a.monto.toFixed(2) : ''}</td><td style="padding-left:20px;">${p ? p.codigo + ' ' + p.nombre : ''}</td><td class="num">${p ? p.monto.toFixed(2) : ''}</td>`;
+        tbody.appendChild(tr);
+    }
+    const trTAC = document.createElement('tr');
+    trTAC.innerHTML = `<td class="total">TOTAL ACTIVO CORRIENTE</td><td class="num total">${tAC.toFixed(2)}</td><td class="total">TOTAL PASIVO CORRIENTE</td><td class="num total">${tPC.toFixed(2)}</td>`;
+    tbody.appendChild(trTAC);
+    const trANC = document.createElement('tr');
+    trANC.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">ACTIVO NO CORRIENTE</td><td colspan="2" style="background:#e6f4ea; font-weight:700;">PASIVO NO CORRIENTE</td>`;
+    tbody.appendChild(trANC);
+    const maxNC = Math.max(activoNoCorriente.length, pasivoNoCorriente.length);
+    for (let i = 0; i < maxNC; i++) {
+        const tr = document.createElement('tr');
+        const a = activoNoCorriente[i], p = pasivoNoCorriente[i];
+        tr.innerHTML = `<td style="padding-left:20px;">${a ? a.codigo + ' ' + a.nombre : ''}</td><td class="num">${a ? a.monto.toFixed(2) : ''}</td><td style="padding-left:20px;">${p ? p.codigo + ' ' + p.nombre : ''}</td><td class="num">${p ? p.monto.toFixed(2) : ''}</td>`;
+        tbody.appendChild(tr);
+    }
+    const trTANC = document.createElement('tr');
+    trTANC.innerHTML = `<td class="total">TOTAL ACTIVO NO CORRIENTE</td><td class="num total">${tANC.toFixed(2)}</td><td class="total">TOTAL PASIVO NO CORRIENTE</td><td class="num total">${tPNC.toFixed(2)}</td>`;
+    tbody.appendChild(trTANC);
+    const tA = tAC + tANC, tP = tPC + tPNC;
+    const trTA = document.createElement('tr');
+    trTA.innerHTML = `<td class="total-strong">TOTAL ACTIVO</td><td class="num total-strong">${tA.toFixed(2)}</td><td class="total-strong">TOTAL PASIVO</td><td class="num total-strong">${tP.toFixed(2)}</td>`;
+    tbody.appendChild(trTA);
+    const trP = document.createElement('tr');
+    trP.innerHTML = `<td colspan="2" style="background:#e6f4ea; font-weight:700;">PATRIMONIO</td><td colspan="2" style="background:#e6f4ea;"></td>`;
+    tbody.appendChild(trP);
+    patrimonio.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td></td><td></td><td style="padding-left:20px;">${p.codigo} ${p.nombre}</td><td class="num">${p.monto.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+    });
+    const trTP = document.createElement('tr');
+    trTP.innerHTML = `<td class="total">TOTAL PATRIMONIO</td><td class="num total">${tPat.toFixed(2)}</td><td class="total">TOTAL PATRIMONIO</td><td class="num total">${tPat.toFixed(2)}</td>`;
+    tbody.appendChild(trTP);
+    const trTF = document.createElement('tr');
+    trTF.innerHTML = `<td class="total-strong">TOTAL ACTIVO</td><td class="num total-strong">${tA.toFixed(2)}</td><td class="total-strong">TOTAL PASIVO Y PATRIMONIO</td><td class="num total-strong">${(tP + tPat).toFixed(2)}</td>`;
+    tbody.appendChild(trTF);
+}
+
+function calcularER() {
+    const tbody = document.getElementById('cuerpoER');
+    tbody.innerHTML = "";
+    const saldos = obtenerSaldos();
+    let tIng = 0, tGas = 0;
+    const dIng = [], dGas = [];
+    catalogoCuentas.forEach(cuenta => {
+        const s = saldos[cuenta.codigo];
+        if (!s || cuenta.excluir317) return;
+        const debe = s.debe, haber = s.haber;
+        if (debe === 0 && haber === 0) return;
+        const elem = cuenta.codigo.charAt(0);
+        if (elem === "7") { const m = haber - debe; if (m !== 0) { dIng.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: m }); tIng += m; } }
+        else if (elem === "6") { const m = debe - haber; if (m !== 0) { dGas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, monto: m }); tGas += m; } }
+    });
+    const trI = document.createElement('tr');
+    trI.innerHTML = `<td colspan="2" style="background:#217346; color:white; font-weight:700;">INGRESOS</td>`;
+    tbody.appendChild(trI);
+    dIng.forEach(i => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="padding-left:20px;">${i.codigo} ${i.nombre}</td><td class="num">${i.monto.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+    });
+    const trTI = document.createElement('tr');
+    trTI.innerHTML = `<td class="total" style="text-align:right;">TOTAL INGRESOS</td><td class="num total">${tIng.toFixed(2)}</td>`;
+    tbody.appendChild(trTI);
+    const trG = document.createElement('tr');
+    trG.innerHTML = `<td colspan="2" style="background:#c0504d; color:white; font-weight:700;">GASTOS</td>`;
+    tbody.appendChild(trG);
+    dGas.forEach(g => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="padding-left:20px;">${g.codigo} ${g.nombre}</td><td class="num">${g.monto.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+    });
+    const trTG = document.createElement('tr');
+    trTG.innerHTML = `<td class="total" style="text-align:right;">TOTAL GASTOS</td><td class="num total">${tGas.toFixed(2)}</td>`;
+    tbody.appendChild(trTG);
+    const res = tIng - tGas;
+    const esU = res >= 0;
+    const trR = document.createElement('tr');
+    trR.innerHTML = `<td class="${esU ? 'utilidad' : 'total'}">${esU ? 'UTILIDAD' : 'PÉRDIDA'} DEL EJERCICIO</td><td class="num ${esU ? 'utilidad' : 'total'}">${Math.abs(res).toFixed(2)}</td>`;
+    tbody.appendChild(trR);
+}
+
+function renderizarPCGE() {
+    const tbody = document.getElementById('cuerpoPCGE');
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    const filtro = (document.getElementById('txtBuscarPCGE')?.value || "").toLowerCase();
+    const filtroElem = (document.getElementById('filtroElementoPCGE')?.value || "").trim();
+    let contador = 0;
+    catalogoCuentas.forEach(cuenta => {
+        if (filtro && !cuenta.codigo.toLowerCase().includes(filtro) && !cuenta.nombre.toLowerCase().includes(filtro)) return;
+        if (filtroElem && cuenta.elemento !== filtroElem) return;
+        contador++;
+        let bg = '';
+        if (cuenta.codigo.length <= 2) bg = 'background:#fff4ce; font-weight:700;';
+        else if (cuenta.codigo.length <= 4) bg = 'background:#e6f4ea;';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-family:monospace; font-weight:700; ${bg}">${cuenta.codigo}</td>
+            <td style="${bg}">${cuenta.nombre}</td>
+            <td style="text-align:center; ${bg}">${cuenta.elemento}</td>
+            <td style="text-align:center; ${bg}">${cuenta.tipo}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    const contEl = document.getElementById('pcgeContador');
+    if (contEl) contEl.textContent = contador;
+}
+
+function filtrarPCGE() { renderizarPCGE(); }
+
+// ==========================================
+// FUNCIONES DE USUARIO Y PLANTILLAS (PARA QUE NO FALLE)
+// ==========================================
+function guardarPlantilla() {
+    if (usuarioActual.rol !== 'admin') { alert('Solo el administrador.'); return; }
+    const nombre = document.getElementById('txtNombrePlantilla').value.trim();
+    if (nombre === "") { alert("Ingrese un nombre."); return; }
+    if (lineasConfigTemp.length < 2) { alert("Mínimo 2 líneas."); return; }
+    for (let i = 0; i < lineasConfigTemp.length; i++) {
+        const l = lineasConfigTemp[i];
+        if (l.codigo === "" || l.desc === "") { alert(`Línea ${i + 1} incompleta.`); return; }
+    }
+    const key = "custom_" + Date.now();
+    const nuevaPlantilla = { nombre: nombre.toUpperCase(), custom: true, lineas: JSON.parse(JSON.stringify(lineasConfigTemp)) };
+    plantillasCache[key] = nuevaPlantilla;
+    mostrarSync('Guardado', 'success');
+    cargarComboBoxPlantillas();
+    limpiarConfig();
+}
+
+function limpiarConfig() {
+    document.getElementById('txtNombrePlantilla').value = "";
+    lineasConfigTemp = [
+        { codigo: "", desc: "", tipo: "debe", valor: "base" },
+        { codigo: "", desc: "", tipo: "haber", valor: "total" }
+    ];
+    renderizarTablaConfig();
+}
+
+function renderizarTablaConfig() {
+    const tbody = document.querySelector('#tablaConfigLineas tbody');
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    lineasConfigTemp.forEach((linea, index) => {
+        const tr = document.createElement('tr');
+        let opcionesCuentas = '<option value="">-- Seleccione --</option>';
+        catalogoCuentas.filter(c => c.codigo.length <= 5).forEach(c => {
+            const selected = (c.codigo === linea.codigo) ? 'selected' : '';
+            opcionesCuentas += `<option value="${c.codigo}" ${selected}>${c.codigo} - ${c.nombre}</option>`;
+        });
+        tr.innerHTML = `
+            <td><select onchange="actualizarLineaConfig(${index}, 'codigo', this.value)">${opcionesCuentas}</select></td>
+            <td><input type="text" value="${linea.desc}" onchange="actualizarLineaConfig(${index}, 'desc', this.value)"></td>
+            <td>
+                <select onchange="actualizarLineaConfig(${index}, 'tipo', this.value)">
+                    <option value="debe" ${linea.tipo === 'debe' ? 'selected' : ''}>DEBE</option>
+                    <option value="haber" ${linea.tipo === 'haber' ? 'selected' : ''}>HABER</option>
+                </select>
+            </td>
+            <td style="text-align:center; font-size:10px; color:#666;">-</td>
+            <td>
+                <select onchange="actualizarLineaConfig(${index}, 'valor', this.value)">
+                    <option value="base" ${linea.valor === 'base' ? 'selected' : ''}>BASE</option>
+                    <option value="igv" ${linea.valor === 'igv' ? 'selected' : ''}>IGV</option>
+                    <option value="total" ${linea.valor === 'total' ? 'selected' : ''}>TOTAL</option>
+                </select>
+            </td>
+            <td style="text-align:center;">
+                <button class="btn-delete-row" onclick="eliminarLineaConfig(${index})">✕</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function actualizarLineaConfig(index, campo, valor) {
+    lineasConfigTemp[index][campo] = valor;
+    if (campo === 'codigo') {
+        const cuenta = catalogoCuentas.find(c => c.codigo === valor);
+        if (cuenta && lineasConfigTemp[index].desc === "") lineasConfigTemp[index].desc = cuenta.nombre;
+        renderizarTablaConfig();
+    }
+}
+
+function agregarLineaConfig() { lineasConfigTemp.push({ codigo: "", desc: "", tipo: "debe", valor: "base" }); renderizarTablaConfig(); }
+function eliminarLineaConfig(index) { if (lineasConfigTemp.length <= 2) { alert("Mínimo 2 líneas."); return; } lineasConfigTemp.splice(index, 1); renderizarTablaConfig(); }
+
+// ==========================================
+// FIN DEL SCRIPT
+// ==========================================
+</script>
+</body>
+</html>
