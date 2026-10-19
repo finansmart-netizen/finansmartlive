@@ -1,0 +1,475 @@
+# Base de Datos PCGE extraída y estructurada del PDF oficial
+# Formato: "Título del Elemento / Cuenta Principal -> Subcuenta": "Nombre de la subcuenta"
+
+PCGE_DICCIONARIO = {
+    # ==========================================
+    # ELEMENTO 1: ACTIVO DISPONIBLE Y EXIGIBLE
+    # ==========================================
+    "10 Efectivo y equivalentes de efectivo -> 101": "Caja",
+    "10 Efectivo y equivalentes de efectivo -> 102": "Fondos fijos",
+    "10 Efectivo y equivalentes de efectivo -> 103": "Efectivo en tránsito",
+    "10 Efectivo y equivalentes de efectivo -> 104": "Cuentas corrientes en instituciones financieras",
+    "10 Efectivo y equivalentes de efectivo -> 1041": "Cuentas corrientes operativas",
+    "10 Efectivo y equivalentes de efectivo -> 1042": "Cuentas corrientes para fines específicos",
+    "10 Efectivo y equivalentes de efectivo -> 105": "Otros equivalentes de efectivo",
+    "10 Efectivo y equivalentes de efectivo -> 106": "Depósitos en instituciones financieras",
+    "10 Efectivo y equivalentes de efectivo -> 1061": "Depósitos de ahorro",
+    "10 Efectivo y equivalentes de efectivo -> 1062": "Depósitos a plazo",
+    "10 Efectivo y equivalentes de efectivo -> 107": "Fondos sujetos a restricción",
+
+    "11 Inversiones financieras -> 111": "Inversiones mantenidas para negociación",
+    "11 Inversiones financieras -> 112": "Inversiones disponibles para la venta",
+    "11 Inversiones financieras -> 113": "Activos financieros – Acuerdo de compra",
+
+    "12 Cuentas por cobrar comerciales - Terceros -> 121": "Facturas, boletas y otros comprobantes por cobrar",
+    "12 Cuentas por cobrar comerciales - Terceros -> 1211": "No emitidas",
+    "12 Cuentas por cobrar comerciales - Terceros -> 1212": "Emitidas en cartera",
+    "12 Cuentas por cobrar comerciales - Terceros -> 1213": "En cobranza",
+    "12 Cuentas por cobrar comerciales - Terceros -> 1214": "En descuento",
+    "12 Cuentas por cobrar comerciales - Terceros -> 122": "Anticipos de clientes",
+    "12 Cuentas por cobrar comerciales - Terceros -> 123": "Letras por cobrar",
+
+    "13 Cuentas por cobrar comerciales - Relacionadas -> 131": "Facturas, boletas y otros comprobantes por cobrar",
+    "13 Cuentas por cobrar comerciales - Relacionadas -> 132": "Anticipos recibidos",
+    "13 Cuentas por cobrar comerciales - Relacionadas -> 133": "Letras por cobrar",
+
+    "14 Cuentas por cobrar al personal, accionistas, directores y gerentes -> 141": "Personal",
+    "14 Cuentas por cobrar al personal, accionistas, directores y gerentes -> 142": "Accionistas (o socios)",
+    "14 Cuentas por cobrar al personal, accionistas, directores y gerentes -> 143": "Directores",
+    "14 Cuentas por cobrar al personal, accionistas, directores y gerentes -> 144": "Gerentes",
+
+    "16 Cuentas por cobrar diversas - Terceros -> 161": "Préstamos",
+    "16 Cuentas por cobrar diversas - Terceros -> 162": "Reclamaciones a terceros",
+    "16 Cuentas por cobrar diversas - Terceros -> 163": "Intereses, regalías y dividendos",
+    "16 Cuentas por cobrar diversas - Terceros -> 164": "Depósitos otorgados en garantía",
+    "16 Cuentas por cobrar diversas - Terceros -> 165": "Venta de activo inmovilizado",
+    "16 Cuentas por cobrar diversas - Terceros -> 166": "Activos por instrumentos financieros",
+    "16 Cuentas por cobrar diversas - Terceros -> 168": "Otras cuentas por cobrar diversas",
+
+    "18 Servicios y otros contratados por anticipado -> 181": "Costos financieros",
+    "18 Servicios y otros contratados por anticipado -> 182": "Seguros",
+    "18 Servicios y otros contratados por anticipado -> 183": "Alquileres",
+    "18 Servicios y otros contratados por anticipado -> 184": "Primas pagadas por opciones",
+    "18 Servicios y otros contratados por anticipado -> 185": "Mantenimiento de activos inmovilizados",
+    "18 Servicios y otros contratados por anticipado -> 189": "Otros gastos contratados por anticipado",
+
+    "19 Estimación de cuentas de cobranza dudosa -> 191": "Cuentas por cobrar comerciales – Terceros",
+    "19 Estimación de cuentas de cobranza dudosa -> 192": "Cuentas por cobrar comerciales – Relacionadas",
+    "19 Estimación de cuentas de cobranza dudosa -> 193": "Cuentas por cobrar al personal, a los accionistas...",
+    "19 Estimación de cuentas de cobranza dudosa -> 194": "Cuentas por cobrar diversas – Terceros",
+
+    # ==========================================
+    # ELEMENTO 2: ACTIVO REALIZABLE
+    # ==========================================
+    "20 Mercaderías -> 201": "Mercaderías manufacturadas",
+    "20 Mercaderías -> 2011": "Mercaderías manufacturadas (Costo/Valor)",
+    "20 Mercaderías -> 202": "Mercaderías de extracción",
+    "20 Mercaderías -> 203": "Mercaderías agropecuarias y piscícolas",
+    "20 Mercaderías -> 204": "Mercaderías inmuebles",
+    "20 Mercaderías -> 208": "Otras mercaderías",
+
+    "21 Productos terminados -> 211": "Productos manufacturados",
+    "21 Productos terminados -> 212": "Productos de extracción terminados",
+    "21 Productos terminados -> 213": "Productos agropecuarios y piscícolas terminados",
+    "21 Productos terminados -> 214": "Productos inmuebles",
+    "21 Productos terminados -> 215": "Existencias de servicios terminados",
+    "21 Productos terminados -> 217": "Otros productos terminados",
+    "21 Productos terminados -> 218": "Costos de financiación – Productos terminados",
+
+    "22 Subproductos, desechos y desperdicios -> 221": "Subproductos",
+    "22 Subproductos, desechos y desperdicios -> 222": "Desechos y desperdicios",
+
+    "23 Productos en proceso -> 231": "Productos en proceso de manufactura",
+    "23 Productos en proceso -> 232": "Productos extraídos en proceso de transformación",
+    "23 Productos en proceso -> 233": "Productos agropecuarios y piscícolas en proceso",
+    "23 Productos en proceso -> 234": "Productos inmuebles en proceso",
+    "23 Productos en proceso -> 235": "Existencias de servicios en proceso",
+    "23 Productos en proceso -> 237": "Otros productos en proceso",
+    "23 Productos en proceso -> 238": "Costos de financiación – Productos en proceso",
+
+    "24 Materias primas -> 241": "Materias primas para productos manufacturados",
+    "24 Materias primas -> 242": "Materias primas para productos de extracción",
+    "24 Materias primas -> 243": "Materias primas para productos agropecuarios",
+    "24 Materias primas -> 244": "Materias primas para productos inmuebles",
+
+    "25 Materiales auxiliares, suministros y repuestos -> 251": "Materiales auxiliares",
+    "25 Materiales auxiliares, suministros y repuestos -> 252": "Suministros",
+    "25 Materiales auxiliares, suministros y repuestos -> 2521": "Combustibles",
+    "25 Materiales auxiliares, suministros y repuestos -> 2522": "Lubricantes",
+    "25 Materiales auxiliares, suministros y repuestos -> 2523": "Energía",
+    "25 Materiales auxiliares, suministros y repuestos -> 253": "Repuestos",
+
+    "26 Envases y embalajes -> 261": "Envases",
+    "26 Envases y embalajes -> 262": "Embalajes",
+
+    "27 Activos no corrientes mantenidos para la venta -> 271": "Inversiones inmobiliarias",
+    "27 Activos no corrientes mantenidos para la venta -> 272": "Inmuebles, maquinaria y equipo",
+    "27 Activos no corrientes mantenidos para la venta -> 273": "Intangibles",
+
+    "28 Existencias por recibir -> 281": "Mercaderías",
+    "28 Existencias por recibir -> 284": "Materias primas",
+    "28 Existencias por recibir -> 285": "Materiales auxiliares, suministros y repuestos",
+    "28 Existencias por recibir -> 286": "Envases y embalajes",
+
+    "29 Desvalorización de existencias -> 291": "Mercaderías",
+    "29 Desvalorización de existencias -> 292": "Productos terminados",
+    "29 Desvalorización de existencias -> 293": "Subproductos, desechos y desperdicios",
+    "29 Desvalorización de existencias -> 294": "Productos en proceso",
+    "29 Desvalorización de existencias -> 295": "Materias primas",
+    "29 Desvalorización de existencias -> 296": "Materiales auxiliares, suministros y repuestos",
+    "29 Desvalorización de existencias -> 297": "Envases y embalajes",
+
+    # ==========================================
+    # ELEMENTO 3: ACTIVO INMOVILIZADO
+    # ==========================================
+    "30 Inversiones mobiliarias -> 301": "Inversiones a ser mantenidas hasta el vencimiento",
+    "30 Inversiones mobiliarias -> 302": "Instrumentos financieros representativos de derecho patrimonial",
+
+    "31 Inversiones inmobiliarias -> 311": "Terrenos",
+    "31 Inversiones inmobiliarias -> 312": "Edificaciones",
+
+    "32 Activos adquiridos en arrendamiento financiero -> 321": "Inversiones inmobiliarias",
+    "32 Activos adquiridos en arrendamiento financiero -> 322": "Inmuebles, maquinaria y equipo",
+
+    "33 Inmuebles, maquinaria y equipo -> 331": "Terrenos",
+    "33 Inmuebles, maquinaria y equipo -> 332": "Edificaciones",
+    "33 Inmuebles, maquinaria y equipo -> 333": "Maquinarias y equipos de explotación",
+    "33 Inmuebles, maquinaria y equipo -> 334": "Unidades de transporte",
+    "33 Inmuebles, maquinaria y equipo -> 335": "Muebles y enseres",
+    "33 Inmuebles, maquinaria y equipo -> 336": "Equipos diversos",
+    "33 Inmuebles, maquinaria y equipo -> 3361": "Equipo para procesamiento de información (cómputo)",
+    "33 Inmuebles, maquinaria y equipo -> 337": "Herramientas y unidades de reemplazo",
+    "33 Inmuebles, maquinaria y equipo -> 338": "Unidades por recibir",
+    "33 Inmuebles, maquinaria y equipo -> 339": "Construcciones y obras en curso",
+
+    "34 Intangibles -> 341": "Concesiones, licencias y otros derechos",
+    "34 Intangibles -> 342": "Patentes y propiedad industrial",
+    "34 Intangibles -> 343": "Programas de computadora (software)",
+    "34 Intangibles -> 344": "Costos de exploración y desarrollo",
+    "34 Intangibles -> 345": "Fórmulas, diseños y prototipos",
+    "34 Intangibles -> 346": "Reservas de recursos extraíbles",
+    "34 Intangibles -> 347": "Plusvalía mercantil",
+
+    "35 Activos biológicos -> 351": "Activos biológicos en producción",
+    "35 Activos biológicos -> 352": "Activos biológicos en desarrollo",
+
+    "36 Desvalorización de activo inmovilizado -> 361": "Desvalorización de inversiones inmobiliarias",
+    "36 Desvalorización de activo inmovilizado -> 363": "Desvalorización de inmuebles, maquinaria y equipo",
+    "36 Desvalorización de activo inmovilizado -> 364": "Desvalorización de intangibles",
+
+    "37 Activo diferido -> 371": "Impuesto a la renta diferido",
+    "37 Activo diferido -> 372": "Participaciones de los trabajadores diferidas",
+    "37 Activo diferido -> 373": "Intereses diferidos",
+
+    "38 Otros activos -> 381": "Bienes de arte y cultura",
+    "38 Otros activos -> 382": "Diversos",
+
+    "39 Depreciación, amortización y agotamiento acumulados -> 391": "Depreciación acumulada",
+    "39 Depreciación, amortización y agotamiento acumulados -> 392": "Amortización acumulada",
+    "39 Depreciación, amortización y agotamiento acumulados -> 393": "Agotamiento acumulado",
+
+    # ==========================================
+    # ELEMENTO 4: PASIVO
+    # ==========================================
+    "40 Tributos, contraprestaciones y aportes... -> 401": "Gobierno central",
+    "40 Tributos, contraprestaciones y aportes... -> 4011": "Impuesto general a las ventas",
+    "40 Tributos, contraprestaciones y aportes... -> 40111": "IGV – Cuenta propia",
+    "40 Tributos, contraprestaciones y aportes... -> 40112": "IGV – Servicios prestados por no domiciliados",
+    "40 Tributos, contraprestaciones y aportes... -> 40113": "IGV – Régimen de percepciones",
+    "40 Tributos, contraprestaciones y aportes... -> 40114": "IGV – Régimen de retenciones",
+    "40 Tributos, contraprestaciones y aportes... -> 4012": "Impuesto selectivo al consumo",
+    "40 Tributos, contraprestaciones y aportes... -> 4015": "Derechos aduaneros",
+    "40 Tributos, contraprestaciones y aportes... -> 4017": "Impuesto a la renta",
+    "40 Tributos, contraprestaciones y aportes... -> 40171": "Renta de tercera categoría",
+    "40 Tributos, contraprestaciones y aportes... -> 40172": "Renta de cuarta categoría",
+    "40 Tributos, contraprestaciones y aportes... -> 40173": "Renta de quinta categoría",
+    "40 Tributos, contraprestaciones y aportes... -> 402": "Certificados tributarios",
+    "40 Tributos, contraprestaciones y aportes... -> 403": "Instituciones públicas",
+    "40 Tributos, contraprestaciones y aportes... -> 4031": "ESSALUD",
+    "40 Tributos, contraprestaciones y aportes... -> 4032": "ONP",
+    "40 Tributos, contraprestaciones y aportes... -> 4033": "Contribución al SENATI",
+    "40 Tributos, contraprestaciones y aportes... -> 4034": "Contribución al SENCICO",
+    "40 Tributos, contraprestaciones y aportes... -> 406": "Gobiernos locales",
+    "40 Tributos, contraprestaciones y aportes... -> 4061": "Impuestos",
+    "40 Tributos, contraprestaciones y aportes... -> 4062": "Contribuciones",
+    "40 Tributos, contraprestaciones y aportes... -> 4063": "Tasas",
+    "40 Tributos, contraprestaciones y aportes... -> 407": "Administradoras de fondos de pensiones",
+    "40 Tributos, contraprestaciones y aportes... -> 408": "Empresas prestadoras de servicios de salud",
+    "40 Tributos, contraprestaciones y aportes... -> 409": "Otros costos administrativos e intereses",
+
+    "41 Remuneraciones y participaciones por pagar -> 411": "Remuneraciones por pagar",
+    "41 Remuneraciones y participaciones por pagar -> 4111": "Sueldos y salarios por pagar",
+    "41 Remuneraciones y participaciones por pagar -> 4112": "Comisiones por pagar",
+    "41 Remuneraciones y participaciones por pagar -> 4114": "Gratificaciones por pagar",
+    "41 Remuneraciones y participaciones por pagar -> 4115": "Vacaciones por pagar",
+    "41 Remuneraciones y participaciones por pagar -> 413": "Participaciones de los trabajadores por pagar",
+    "41 Remuneraciones y participaciones por pagar -> 415": "Beneficios sociales de los trabajadores por pagar",
+    "41 Remuneraciones y participaciones por pagar -> 4151": "Compensación por tiempo de servicios (CTS)",
+    "41 Remuneraciones y participaciones por pagar -> 419": "Otras remuneraciones y participaciones por pagar",
+
+    "42 Cuentas por pagar comerciales - Terceros -> 421": "Facturas, boletas y otros comprobantes por pagar",
+    "42 Cuentas por pagar comerciales - Terceros -> 4211": "No emitidas",
+    "42 Cuentas por pagar comerciales - Terceros -> 4212": "Emitidas",
+    "42 Cuentas por pagar comerciales - Terceros -> 422": "Anticipos a proveedores",
+    "42 Cuentas por pagar comerciales - Terceros -> 423": "Letras por pagar",
+    "42 Cuentas por pagar comerciales - Terceros -> 424": "Honorarios por pagar",
+
+    "43 Cuentas por pagar comerciales - Relacionadas -> 431": "Facturas, boletas y otros comprobantes por pagar",
+    "43 Cuentas por pagar comerciales - Relacionadas -> 432": "Anticipos otorgados",
+    "43 Cuentas por pagar comerciales - Relacionadas -> 433": "Letras por pagar",
+    "43 Cuentas por pagar comerciales - Relacionadas -> 434": "Honorarios por pagar",
+
+    "44 Cuentas por pagar a los accionistas, directores y gerentes -> 441": "Accionistas (o socios)",
+    "44 Cuentas por pagar a los accionistas, directores y gerentes -> 442": "Directores",
+    "44 Cuentas por pagar a los accionistas, directores y gerentes -> 443": "Gerentes",
+
+    "45 Obligaciones financieras -> 451": "Préstamos de instituciones financieras y otras entidades",
+    "45 Obligaciones financieras -> 452": "Contratos de arrendamiento financiero",
+    "45 Obligaciones financieras -> 453": "Obligaciones emitidas",
+    "45 Obligaciones financieras -> 454": "Otros Instrumentos financieros por pagar",
+    "45 Obligaciones financieras -> 455": "Costos de financiación por pagar",
+    "45 Obligaciones financieras -> 456": "Préstamos con compromisos de recompra",
+
+    "46 Cuentas por pagar diversas - Terceros -> 461": "Reclamaciones de terceros",
+    "46 Cuentas por pagar diversas - Terceros -> 464": "Pasivos por instrumentos financieros",
+    "46 Cuentas por pagar diversas - Terceros -> 465": "Pasivos por compra de activo inmovilizado",
+    "46 Cuentas por pagar diversas - Terceros -> 467": "Depósitos recibidos en garantía",
+    "46 Cuentas por pagar diversas - Terceros -> 469": "Otras cuentas por pagar diversas",
+
+    "47 Cuentas por pagar diversas - Relacionadas -> 471": "Préstamos",
+    "47 Cuentas por pagar diversas - Relacionadas -> 472": "Costos de financiación",
+    "47 Cuentas por pagar diversas - Relacionadas -> 473": "Anticipos recibidos",
+    "47 Cuentas por pagar diversas - Relacionadas -> 474": "Regalías",
+    "47 Cuentas por pagar diversas - Relacionadas -> 475": "Dividendos",
+
+    "48 Provisiones -> 481": "Provisión para litigios",
+    "48 Provisiones -> 482": "Provisión por desmantelamiento, retiro o rehabilitación",
+    "48 Provisiones -> 483": "Provisión para reestructuraciones",
+    "48 Provisiones -> 484": "Provisión para protección y remediación del medio ambiente",
+    "48 Provisiones -> 485": "Provisión para gastos de responsabilidad social",
+    "48 Provisiones -> 486": "Provisión para garantías",
+
+    "49 Pasivo diferido -> 491": "Impuesto a la renta diferido",
+    "49 Pasivo diferido -> 492": "Participaciones de los trabajadores diferidas",
+    "49 Pasivo diferido -> 493": "Intereses diferidos",
+    "49 Pasivo diferido -> 495": "Subsidios recibidos diferidos",
+    "49 Pasivo diferido -> 496": "Ingresos diferidos",
+
+    # ==========================================
+    # ELEMENTO 5: PATRIMONIO NETO
+    # ==========================================
+    "50 Capital -> 501": "Capital social",
+    "50 Capital -> 502": "Acciones en tesorería",
+
+    "51 Acciones de inversión -> 511": "Acciones de inversión",
+    "51 Acciones de inversión -> 512": "Acciones de inversión en tesorería",
+
+    "52 Capital adicional -> 521": "Primas (descuento) de acciones",
+    "52 Capital adicional -> 522": "Capitalizaciones en trámite",
+    "52 Capital adicional -> 523": "Reducciones de capital pendientes de formalización",
+
+    "56 Resultados no realizados -> 561": "Diferencia en cambio de inversiones permanentes",
+    "56 Resultados no realizados -> 562": "Instrumentos financieros – Cobertura de flujo de efectivo",
+    "56 Resultados no realizados -> 563": "Ganancia o pérdida en activos disponibles para la venta",
+
+    "57 Excedente de revaluación -> 571": "Excedente de revaluación",
+    "57 Excedente de revaluación -> 572": "Excedente de revaluación – Acciones liberadas recibidas",
+    "57 Excedente de revaluación -> 573": "Participación en excedente de revaluación",
+
+    "58 Reservas -> 581": "Reinversión",
+    "58 Reservas -> 582": "Legal",
+    "58 Reservas -> 583": "Contractuales",
+    "58 Reservas -> 584": "Estatutarias",
+    "58 Reservas -> 585": "Facultativas",
+    "58 Reservas -> 589": "Otras reservas",
+
+    "59 Resultados acumulados -> 591": "Utilidades no distribuidas",
+    "59 Resultados acumulados -> 5911": "Utilidades acumuladas",
+    "59 Resultados acumulados -> 5912": "Ingresos de años anteriores",
+    "59 Resultados acumulados -> 592": "Pérdidas acumuladas",
+    "59 Resultados acumulados -> 5921": "Pérdidas acumuladas",
+    "59 Resultados acumulados -> 5922": "Gastos de años anteriores",
+
+    # ==========================================
+    # ELEMENTO 6: GASTOS POR NATURALEZA
+    # ==========================================
+    "60 Compras -> 601": "Mercaderías",
+    "60 Compras -> 6011": "Mercaderías manufacturadas",
+    "60 Compras -> 602": "Materias primas",
+    "60 Compras -> 603": "Materiales auxiliares, suministros y repuestos",
+    "60 Compras -> 604": "Envases y embalajes",
+    "60 Compras -> 609": "Costos vinculados con las compras",
+    "60 Compras -> 6091": "Costos vinculados con las compras de mercaderías",
+
+    "61 Variación de existencias -> 611": "Mercaderías",
+    "61 Variación de existencias -> 612": "Materias primas",
+    "61 Variación de existencias -> 613": "Materiales auxiliares, suministros y repuestos",
+    "61 Variación de existencias -> 614": "Envases y embalajes",
+
+    "62 Gastos de personal, directores y gerentes -> 621": "Remuneraciones",
+    "62 Gastos de personal, directores y gerentes -> 6211": "Sueldos y salarios",
+    "62 Gastos de personal, directores y gerentes -> 6212": "Comisiones",
+    "62 Gastos de personal, directores y gerentes -> 6213": "Remuneraciones en especie",
+    "62 Gastos de personal, directores y gerentes -> 6214": "Gratificaciones",
+    "62 Gastos de personal, directores y gerentes -> 6215": "Vacaciones",
+    "62 Gastos de personal, directores y gerentes -> 622": "Otras remuneraciones",
+    "62 Gastos de personal, directores y gerentes -> 623": "Indemnizaciones al personal",
+    "62 Gastos de personal, directores y gerentes -> 624": "Capacitación",
+    "62 Gastos de personal, directores y gerentes -> 625": "Atención al personal",
+    "62 Gastos de personal, directores y gerentes -> 626": "Gerentes",
+    "62 Gastos de personal, directores y gerentes -> 627": "Seguridad, previsión social y otras contribuciones",
+    "62 Gastos de personal, directores y gerentes -> 6271": "Régimen de prestaciones de salud (ESSALUD)",
+    "62 Gastos de personal, directores y gerentes -> 6272": "Régimen de pensiones (ONP/AFP)",
+    "62 Gastos de personal, directores y gerentes -> 6273": "Seguro complementario de trabajo de riesgo (SCTR)",
+    "62 Gastos de personal, directores y gerentes -> 6274": "Seguro de vida",
+    "62 Gastos de personal, directores y gerentes -> 6277": "Contribuciones al SENCICO y SENATI",
+    "62 Gastos de personal, directores y gerentes -> 628": "Retribuciones al directorio",
+    "62 Gastos de personal, directores y gerentes -> 629": "Beneficios sociales de los trabajadores",
+    "62 Gastos de personal, directores y gerentes -> 6291": "Compensación por tiempo de servicio (CTS)",
+
+    "63 Gastos de servicios prestados por terceros -> 631": "Transporte, correos y gastos de viaje",
+    "63 Gastos de servicios prestados por terceros -> 6311": "Transporte",
+    "63 Gastos de servicios prestados por terceros -> 63111": "De carga",
+    "63 Gastos de servicios prestados por terceros -> 63112": "De pasajeros",
+    "63 Gastos de servicios prestados por terceros -> 6312": "Correos",
+    "63 Gastos de servicios prestados por terceros -> 6313": "Alojamiento",
+    "63 Gastos de servicios prestados por terceros -> 6314": "Alimentación",
+    "63 Gastos de servicios prestados por terceros -> 632": "Asesoría y consultoría",
+    "63 Gastos de servicios prestados por terceros -> 6321": "Administrativa",
+    "63 Gastos de servicios prestados por terceros -> 6322": "Legal y tributaria",
+    "63 Gastos de servicios prestados por terceros -> 6323": "Auditoría y contable",
+    "63 Gastos de servicios prestados por terceros -> 633": "Producción encargada a terceros",
+    "63 Gastos de servicios prestados por terceros -> 634": "Mantenimiento y reparaciones",
+    "63 Gastos de servicios prestados por terceros -> 635": "Alquileres",
+    "63 Gastos de servicios prestados por terceros -> 636": "Servicios básicos",
+    "63 Gastos de servicios prestados por terceros -> 6361": "Energía eléctrica",
+    "63 Gastos de servicios prestados por terceros -> 6362": "Gas",
+    "63 Gastos de servicios prestados por terceros -> 6363": "Agua",
+    "63 Gastos de servicios prestados por terceros -> 6364": "Teléfono",
+    "63 Gastos de servicios prestados por terceros -> 6365": "Internet",
+    "63 Gastos de servicios prestados por terceros -> 637": "Publicidad, publicaciones, relaciones públicas",
+    "63 Gastos de servicios prestados por terceros -> 638": "Servicios de contratistas",
+    "63 Gastos de servicios prestados por terceros -> 639": "Otros servicios prestados por terceros",
+    "63 Gastos de servicios prestados por terceros -> 6391": "Gastos bancarios",
+
+    "64 Gastos por tributos -> 641": "Gobierno central",
+    "64 Gastos por tributos -> 6411": "Impuesto general a las ventas y selectivo al consumo",
+    "64 Gastos por tributos -> 6412": "Impuesto a las transacciones financieras (ITF)",
+    "64 Gastos por tributos -> 643": "Gobierno local",
+    "64 Gastos por tributos -> 6431": "Impuesto predial",
+    "64 Gastos por tributos -> 6432": "Arbitrios municipales",
+    "64 Gastos por tributos -> 6433": "Impuesto al patrimonio vehicular",
+    "64 Gastos por tributos -> 6434": "Licencia de funcionamiento",
+
+    "65 Otros gastos de gestión -> 651": "Seguros",
+    "65 Otros gastos de gestión -> 652": "Regalías",
+    "65 Otros gastos de gestión -> 653": "Suscripciones",
+    "65 Otros gastos de gestión -> 654": "Licencias y derechos de vigencia",
+    "65 Otros gastos de gestión -> 655": "Costo neto de enajenación de activos inmovilizados",
+    "65 Otros gastos de gestión -> 656": "Suministros",
+    "65 Otros gastos de gestión -> 659": "Otros gastos de gestión",
+    "65 Otros gastos de gestión -> 6591": "Donaciones",
+    "65 Otros gastos de gestión -> 6592": "Sanciones administrativas",
+
+    "66 Pérdida por medición de activos... -> 661": "Activo realizable",
+    "66 Pérdida por medición de activos... -> 662": "Activo inmovilizado",
+
+    "67 Gastos financieros -> 671": "Gastos en operaciones de endeudamiento",
+    "67 Gastos financieros -> 672": "Pérdida por instrumentos financieros derivados",
+    "67 Gastos financieros -> 673": "Intereses por préstamos y otras obligaciones",
+    "67 Gastos financieros -> 674": "Gastos en operaciones de factoraje",
+    "67 Gastos financieros -> 675": "Descuentos concedidos por pronto pago",
+    "67 Gastos financieros -> 676": "Diferencia de cambio",
+    "67 Gastos financieros -> 677": "Pérdida por medición de activos y pasivos financieros",
+    "67 Gastos financieros -> 679": "Otros gastos financieros",
+
+    "68 Valuación y deterioro de activos y provisiones -> 681": "Depreciación",
+    "68 Valuación y deterioro de activos y provisiones -> 682": "Amortización de intangibles",
+    "68 Valuación y deterioro de activos y provisiones -> 683": "Agotamiento",
+    "68 Valuación y deterioro de activos y provisiones -> 684": "Valuación de activos",
+    "68 Valuación y deterioro de activos y provisiones -> 6841": "Estimación de cuentas de cobranza dudosa",
+    "68 Valuación y deterioro de activos y provisiones -> 685": "Deterioro del valor de los activos",
+    "68 Valuación y deterioro de activos y provisiones -> 686": "Provisiones",
+
+    "69 Costo de ventas -> 691": "Mercaderías",
+    "69 Costo de ventas -> 6911": "Mercaderías manufacturadas",
+    "69 Costo de ventas -> 692": "Productos terminados",
+    "69 Costo de ventas -> 693": "Subproductos, desechos y desperdicios",
+    "69 Costo de ventas -> 694": "Servicios",
+    "69 Costo de ventas -> 695": "Gastos por desvalorización de existencias",
+
+    # ==========================================
+    # ELEMENTO 7: INGRESOS
+    # ==========================================
+    "70 Ventas -> 701": "Mercaderías",
+    "70 Ventas -> 7011": "Mercaderías manufacturadas",
+    "70 Ventas -> 70111": "Terceros",
+    "70 Ventas -> 7012": "Mercaderías de extracción",
+    "70 Ventas -> 70121": "Terceros",
+    "70 Ventas -> 702": "Productos terminados",
+    "70 Ventas -> 703": "Subproductos, desechos y desperdicios",
+    "70 Ventas -> 704": "Prestación de servicios",
+    "70 Ventas -> 709": "Devoluciones sobre ventas",
+
+    "71 Variación de la producción almacenada -> 711": "Variación de productos terminados",
+    "71 Variación de la producción almacenada -> 712": "Variación de subproductos...",
+    "71 Variación de la producción almacenada -> 713": "Variación de productos en proceso",
+    "71 Variación de la producción almacenada -> 714": "Variación de envases y embalajes",
+    "71 Variación de la producción almacenada -> 715": "Variación de existencias de servicios",
+
+    "72 Producción de activo inmovilizado -> 721": "Inversiones inmobiliarias",
+    "72 Producción de activo inmovilizado -> 722": "Inmuebles, maquinaria y equipo",
+    "72 Producción de activo inmovilizado -> 723": "Intangibles",
+    "72 Producción de activo inmovilizado -> 724": "Activos biológicos",
+    "72 Producción de activo inmovilizado -> 725": "Costos de financiación capitalizados",
+
+    "73 Descuentos, rebajas y bonificaciones obtenidos -> 731": "Descuentos, rebajas y bonificaciones obtenidos",
+
+    "74 Descuentos, rebajas y bonificaciones concedidos -> 741": "Descuentos, rebajas y bonificaciones concedidos",
+
+    "75 Otros ingresos de gestión -> 751": "Servicios en beneficio del personal",
+    "75 Otros ingresos de gestión -> 752": "Comisiones y corretajes",
+    "75 Otros ingresos de gestión -> 753": "Regalías",
+    "75 Otros ingresos de gestión -> 754": "Alquileres",
+    "75 Otros ingresos de gestión -> 755": "Recuperación de cuentas de valuación",
+    "75 Otros ingresos de gestión -> 756": "Enajenación de activos inmovilizados",
+    "75 Otros ingresos de gestión -> 757": "Recuperación de deterioro de cuentas de activos",
+    "75 Otros ingresos de gestión -> 759": "Otros ingresos de gestión",
+    "75 Otros ingresos de gestión -> 7591": "Subsidios gubernamentales",
+    "75 Otros ingresos de gestión -> 7592": "Reclamos al seguro",
+    "75 Otros ingresos de gestión -> 7593": "Donaciones",
+
+    "76 Ganancia por medición de activos... -> 761": "Activo realizable",
+    "76 Ganancia por medición de activos... -> 762": "Activo inmovilizado",
+
+    "77 Ingresos financieros -> 771": "Ganancia por instrumento financiero derivado",
+    "77 Ingresos financieros -> 772": "Rendimientos ganados",
+    "77 Ingresos financieros -> 773": "Dividendos",
+    "77 Ingresos financieros -> 774": "Ingresos en operaciones de factoraje",
+    "77 Ingresos financieros -> 775": "Descuentos obtenidos por pronto pago",
+    "77 Ingresos financieros -> 776": "Diferencia en cambio",
+    "77 Ingresos financieros -> 777": "Ganancia por medición de activos y pasivos financieros",
+    "77 Ingresos financieros -> 779": "Otros ingresos financieros",
+
+    "78 Cargas cubiertas por provisiones -> 781": "Cargas cubiertas por provisiones",
+    "79 Cargas imputables a cuentas de costos y gastos -> 791": "Cargas imputables a cuentas de costos y gastos",
+    "79 Cargas imputables a cuentas de costos y gastos -> 792": "Gastos financieros imputables a cuentas de existencias",
+
+    # ==========================================
+    # ELEMENTO 8: SALDOS INTERMEDIARIOS
+    # ==========================================
+    "80 Margen comercial -> 801": "Margen comercial",
+    "81 Producción del ejercicio -> 811": "Producción de bienes",
+    "81 Producción del ejercicio -> 812": "Producción de servicios",
+    "81 Producción del ejercicio -> 813": "Producción de activo inmovilizado",
+    "82 Valor agregado -> 821": "Valor agregado",
+    "83 Excedente bruto de explotación -> 831": "Excedente bruto de explotación",
+    "84 Resultado de explotación -> 841": "Resultado de explotación",
+    "85 Resultado antes de participaciones e impuestos -> 851": "Resultado antes de participaciones e impuestos",
+    "87 Participaciones de los trabajadores -> 871": "Participación de los trabajadores – Corriente",
+    "87 Participaciones de los trabajadores -> 872": "Participación de los trabajadores – Diferida",
+    "88 Impuesto a la renta -> 881": "Impuesto a la renta – Corriente",
+    "88 Impuesto a la renta -> 882": "Impuesto a la renta – Diferido",
+    "89 Determinación del resultado del ejercicio -> 891": "Utilidad",
+    "89 Determinación del resultado del ejercicio -> 892": "Pérdida"
+}
