@@ -1,107 +1,98 @@
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+import requests
+import json
 import os
-import sqlite3
-from flask import Flask, render_template, request, jsonify
-from groq import Groq
 
-app = Flask(__name__)
-DB_NAME = 'finansmart.db'
+app = Flask(__name__, static_folder='.')
+CORS(app)
 
-# --- 1. CREAR LA BASE DE DATOS ---
-def init_db():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    # Tabla de asientos
-    c.execute('''CREATE TABLE IF NOT EXISTS asientos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nro INTEGER, fecha TEXT, glosa TEXT, factura TEXT, 
-        cuenta TEXT, debe REAL, haber REAL
-    )''')
-    conn.commit()
-    conn.close()
+# --- CONFIGURACIÓN DE GEMINI ---
+# La API Key se leerá de las variables de entorno de Render
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+# Modelo recomendado (puedes usar "gemini-1.5-flash" o "gemini-1.5-pro")
+MODELO = "gemini-1.5-flash" 
+URL_GEMINI = f"https://generativelanguage.googleapis.com/v1beta/models/{MODELO}:generateContent?key={GEMINI_API_KEY}"
 
-init_db()
-
-@app.route('/')
-def inicio():
-    return render_template('index.html')
-
-# --- 2. GUARDAR UN ASIENTO (Llamado desde el HTML) ---
-@app.route('/api/guardar-asiento', methods=['POST'])
-def guardar_asiento():
-    datos = request.json
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
+def consultar_gemini(prompt):
+    if not GEMINI_API_KEY:
+        return "Error: Falta configurar GEMINI_API_KEY en las variables de entorno."
     
-    # Guardamos cada línea del asiento
-    for linea in datos['lineas']:
-        c.execute("INSERT INTO asientos (nro, fecha, glosa, factura, cuenta, debe, haber) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                  (datos['nro'], datos['fecha'], datos['glosa'], datos['factura'], 
-                   linea['cuenta'], linea['debe'], linea['haber']))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "ok"})
-
-# --- 3. LEER TODOS LOS ASIENTOS (Para el Libro y para la IA) ---
-@app.route('/api/obtener-asientos', methods=['GET'])
-def obtener_asientos():
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("SELECT * FROM asientos")
-    filas = c.fetchall()
-    conn.close()
-    
-    # Estructuramos los datos para el HTML
-    asientos = []
-    for fila in filas:
-        asientos.append({
-            "id": fila[0], "nro": fila[1], "fecha": fila[2], "glosa": fila[3], 
-            "factura": fila[4], "cuenta": fila[5], "debe": fila[6], "haber": fila[7]
-        })
-    return jsonify(asientos)
-
-# --- 4. LA IA CON CONTEXTO REAL (Lee la Base de Datos) ---
-@app.route('/api/clasificar', methods=['POST'])
-def clasificar():
-    datos = request.json
-    descripcion = datos.get('descripcion', '').upper()
-    giro = datos.get('giro', 'general')
-    contexto = datos.get('contexto', '')
-    
-    # La IA lee los asientos históricos para aprender
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("SELECT glosa, cuenta FROM asientos LIMIT 50") # Últimos 50 movimientos
-    historial = c.fetchall()
-    conn.close()
-    
-    api_key = os.environ.get("GROQ_API_KEY")
-    if not api_key:
-        return jsonify({"error": "Falta API KEY de Groq"}), 500
-    
-    client = Groq(api_key=api_key)
-    
-    prompt = f"""
-    Eres un contador peruano experto en el PCGE. 
-    GIRO DEL NEGOCIO: {giro}
-    REGLAS: {contexto}
-    HISTORIAL DE MOVIMIENTOS (Aprende de esto):
-    {historial}
-    
-    Clasifica esta nueva factura: "{descripcion}"
-    Responde SOLO con el código de la cuenta (ej: 6011).
-    """
+    headers = {'Content-Type': 'application/json'}
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
     
     try:
-        completion = client.chat.completions.create(
-            model="llama3-8b-8192",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        cuenta = completion.choices[0].message.content.strip()
-        cuenta = ''.join(filter(str.isdigit, cuenta))
-        return jsonify({"cuenta": cuenta, "fuente": "Groq + Historial"})
+        response = requests.post(URL_GEMINI, headers=headers, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        # Extraer el texto de la respuesta de Gemini
+        return data['candidates'][0]['content']['parts'][0]['text']
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return f"Error conectando con Gemini: {str(e)}"
+
+# --- RUTA PARA SERVIR EL HTML ---
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+# --- API: CLASIFICAR FACTURA ---
+@app.route('/api/clasificar', methods=['POST'])
+def clasificar():
+    data = request.json
+    contexto = data.get('contexto', 'Comercio general')
+    glosa = data.get('glosa', '')
+    proveedor = data.get('proveedor', '')
+    
+    prompt = f"""
+    Eres un contador peruano experto en PCGE. Clasifica esta factura.
+    Contexto del negocio: {contexto}
+    Proveedor: {proveedor}
+    Glosa: {glosa}
+    
+    Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra) con esta estructura:
+    {{"cuenta": "código de cuenta (ej. 6011, 636)", "razon": "explicación breve"}}
+    """
+    
+    respuesta_ia = consultar_gemini(prompt)
+    
+    try:
+        # Limpiar la respuesta por si Gemini devuelve markdown
+        inicio = respuesta_ia.find('{')
+        fin = respuesta_ia.rfind('}') + 1
+        json_str = respuesta_ia[inicio:fin]
+        return jsonify(json.loads(json_str))
+    except:
+        return jsonify({"cuenta": "6011", "razon": "Fallback por formato inesperado de Gemini"})
+
+# --- API: CHAT FINANCIERO ---
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    data = request.json
+    pregunta = data.get('pregunta', '')
+    db_contexto = data.get('db', 'No hay asientos registrados')
+    contexto_negocio = data.get('contexto', '')
+    
+    prompt = f"""
+    Eres un contador y asesor financiero. Responde a la pregunta del usuario basándote en sus datos reales.
+    
+    DATOS DE LA EMPRESA (Libro Diario):
+    {db_contexto}
+    
+    CONTEXTO DEL NEGOCIO: {contexto_negocio}
+    
+    PREGUNTA DEL USUARIO: "{pregunta}"
+    
+    Responde de forma amigable, profesional y directa. Usa los datos para calcular totales si es necesario.
+    """
+    
+    respuesta_ia = consultar_gemini(prompt)
+    return jsonify({"respuesta": respuesta_ia})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
+    # Render usa el puerto definido en la variable PORT
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
